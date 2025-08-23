@@ -1,32 +1,52 @@
-import { useState, useEffect } from 'react';
-import { storage } from '@/lib/storage';
+import { useState, useEffect } from "react";
 
 export function useWishlist() {
-  const [wishlist, setWishlist] = useState<string[]>([]);
-
-  const refreshWishlist = () => {
-    setWishlist(storage.getWishlist());
-  };
+  const [wishlistItems, setWishlistItems] = useState<string[]>([]);
 
   useEffect(() => {
-    refreshWishlist();
+    const stored = localStorage.getItem("grindctrl_wishlist");
+    if (stored) {
+      try {
+        setWishlistItems(JSON.parse(stored));
+      } catch (error) {
+        console.error("Failed to parse wishlist from localStorage:", error);
+        setWishlistItems([]);
+      }
+    }
   }, []);
 
+  const addToWishlist = (productId: string) => {
+    const newWishlist = [...wishlistItems, productId];
+    setWishlistItems(newWishlist);
+    localStorage.setItem("grindctrl_wishlist", JSON.stringify(newWishlist));
+  };
+
+  const removeFromWishlist = (productId: string) => {
+    const newWishlist = wishlistItems.filter(id => id !== productId);
+    setWishlistItems(newWishlist);
+    localStorage.setItem("grindctrl_wishlist", JSON.stringify(newWishlist));
+  };
+
   const toggleWishlist = (productId: string) => {
-    const added = storage.toggleWishlist(productId);
-    refreshWishlist();
-    return added;
+    if (wishlistItems.includes(productId)) {
+      removeFromWishlist(productId);
+      return false;
+    } else {
+      addToWishlist(productId);
+      return true;
+    }
   };
 
   const isInWishlist = (productId: string) => {
-    return storage.isInWishlist(productId);
+    return wishlistItems.includes(productId);
   };
 
   return {
-    wishlist,
-    wishlistCount: wishlist.length,
+    wishlistItems,
+    wishlistCount: wishlistItems.length,
+    addToWishlist,
+    removeFromWishlist,
     toggleWishlist,
     isInWishlist,
-    refreshWishlist
   };
 }

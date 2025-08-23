@@ -1,84 +1,86 @@
-import { useState, useEffect } from 'react';
-import { storage, type CartItem } from '@/lib/storage';
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { getSessionId } from "@/lib/products";
+import { type CartItemWithProduct, type InsertCartItem } from "@shared/schema";
 
 export function useCart() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const sessionId = getSessionId();
 
-  const refreshCart = () => {
-    setCartItems(storage.getCartItems());
-  };
+  const {
+    data: cartItems = [],
+    isLoading,
+    error,
+  } = useQuery<CartItemWithProduct[]>({
+    queryKey: ["/api/cart"],
+    queryFn: async () => {
+      const response = await fetch("/api/cart", {
+        headers: {
+          "x-session-id": sessionId,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch cart");
+      return response.json();
+    },
+  });
 
-  useEffect(() => {
-    refreshCart();
-  }, []);
+  const addToCartMutation = useMutation({
+    mutationFn: async (item: Omit<InsertCartItem, "sessionId">) => {
+      const response = await apiRequest("POST", "/api/cart", item);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+  });
 
-  const addToCart = async (
-    productId: string,
-    quantity: number = 1,
-    selectedSize?: string,
-    selectedColor?: string
-  ) => {
-    setIsLoading(true);
-    try {
-      const success = storage.addToCart(productId, quantity, selectedSize, selectedColor);
-      if (success) {
-        refreshCart();
-      }
-      return success;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const updateCartMutation = useMutation({
+    mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
+      const response = await apiRequest("PATCH", `/api/cart/${id}`, { quantity });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+  });
 
-  const updateQuantity = async (itemId: string, quantity: number) => {
-    setIsLoading(true);
-    try {
-      const success = storage.updateCartItem(itemId, quantity);
-      if (success) {
-        refreshCart();
-      }
-      return success;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const removeFromCartMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/cart/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+  });
 
-  const removeItem = async (itemId: string) => {
-    setIsLoading(true);
-    try {
-      const success = storage.removeFromCart(itemId);
-      if (success) {
-        refreshCart();
-      }
-      return success;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const clearCartMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", "/api/cart");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+  });
 
-  const clearCart = async () => {
-    setIsLoading(true);
-    try {
-      storage.clearCart();
-      refreshCart();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const cartTotal = storage.getCartTotal();
-  const cartCount = storage.getCartCount();
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cartItems.reduce(
+    (sum, item) => sum + parseFloat(item.product.price) * item.quantity,
+    0
+  );
 
   return {
     cartItems,
-    cartTotal,
     cartCount,
+    cartTotal,
     isLoading,
-    addToCart,
-    updateQuantity,
-    removeItem,
-    clearCart,
-    refreshCart
+    error,
+    addToCart: addToCartMutation.mutate,
+    updateCart: updateCartMutation.mutate,
+    removeFromCart: removeFromCartMutation.mutate,
+    clearCart: clearCartMutation.mutate,
+    isAddingToCart: addToCartMutation.isPending,
+    isUpdatingCart: updateCartMutation.isPending,
+    isRemovingFromCart: removeFromCartMutation.isPending,
   };
 }

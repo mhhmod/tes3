@@ -9,8 +9,8 @@
       "category": "tshirts",
       "featured": true,
       "images": [
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=800",
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=600"
+        "assets/product-main.png",
+        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=800"
       ],
       "colors": [
         { "name": "Black", "value": "#000000" },

@@ -1,167 +1,169 @@
-import { useState } from 'react';
-import { Link } from 'wouter';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useCart } from '@/hooks/useCart';
-import { useWishlist } from '@/hooks/useWishlist';
-import { useToast } from '@/hooks/use-toast';
-import type { Product } from '@/lib/storage';
+import { useState } from "react";
+import { type Product } from "@shared/schema";
+import { useCart } from "@/hooks/useCart";
+import { useWishlist } from "@/hooks/useWishlist";
 
 interface ProductCardProps {
   product: Product;
+  onQuickView: (product: Product) => void;
+  onNotification: (message: string, type?: "success" | "error" | "info") => void;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
-  const { toast } = useToast();
+export default function ProductCard({ product, onQuickView, onNotification }: ProductCardProps) {
+  const [selectedColor, setSelectedColor] = useState(product.colors[0]?.name || "");
+  const [selectedSize, setSelectedSize] = useState(product.sizes[0] || "");
+  
+  const { addToCart, isAddingToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const success = await addToCart(product.id);
-    if (success) {
-      toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart.`,
-      });
+  const handleAddToCart = () => {
+    if (!selectedSize && product.sizes.length > 1) {
+      onNotification("Please select a size", "error");
+      return;
     }
-  };
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const added = toggleWishlist(product.id);
-    toast({
-      title: added ? "Added to wishlist" : "Removed from wishlist",
-      description: added 
-        ? `${product.name} has been added to your wishlist.`
-        : `${product.name} has been removed from your wishlist.`,
+    addToCart({
+      productId: product.id,
+      quantity: 1,
+      selectedSize: selectedSize || undefined,
+      selectedColor: selectedColor || undefined,
     });
+
+    onNotification("Item added to cart!", "success");
   };
 
-  const isWishlisted = isInWishlist(product.id);
+  const handleWishlistToggle = () => {
+    const added = toggleWishlist(product.id);
+    onNotification(
+      added ? "Added to wishlist!" : "Removed from wishlist",
+      added ? "success" : "info"
+    );
+  };
+
+  const discount = product.originalPrice
+    ? Math.round(((parseFloat(product.originalPrice) - parseFloat(product.price)) / parseFloat(product.originalPrice)) * 100)
+    : 0;
 
   return (
-    <Link href={`/products/${product.id}`}>
-      <div className="group cursor-pointer" data-testid={`card-product-${product.id}`}>
-        <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-square">
-          {/* Tags */}
-          {product.tags.length > 0 && (
-            <div className="absolute top-2 left-2 z-10 flex gap-1">
-              {product.tags.map((tag) => (
-                <Badge 
-                  key={tag} 
-                  variant="destructive"
-                  className="text-xs px-2 py-1"
-                >
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+    <div className="product-hover bg-grind-surface rounded-xl overflow-hidden group" data-testid={`card-product-${product.id}`}>
+      <div className="relative overflow-hidden">
+        <img
+          src={product.images[0]}
+          alt={product.name}
+          className="w-full h-80 object-cover image-zoom"
+          data-testid={`img-product-${product.id}`}
+        />
 
-          {/* Wishlist Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`absolute top-2 right-2 z-10 h-8 w-8 p-0 bg-white/90 hover:bg-white ${
-              isWishlisted ? 'text-red-500' : 'text-gray-400'
+        {/* Wishlist Button */}
+        <button
+          className="absolute top-4 right-4 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-all"
+          onClick={handleWishlistToggle}
+          data-testid={`button-wishlist-${product.id}`}
+        >
+          <i
+            className={`fas fa-heart wishlist-heart ${
+              isInWishlist(product.id) ? "active text-grind-primary" : ""
             }`}
-            onClick={handleToggleWishlist}
-            data-testid={`button-wishlist-${product.id}`}
+          ></i>
+        </button>
+
+        {/* Tags */}
+        {product.tags?.map((tag) => (
+          <div
+            key={tag}
+            className="absolute top-4 left-4 bg-grind-primary text-white px-3 py-1 rounded-full text-sm font-semibold"
+            data-testid={`tag-${tag.toLowerCase()}`}
           >
-            <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
-          </Button>
-
-          {/* Product Image */}
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            loading="lazy"
-          />
-
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-
-          {/* Quick Add Button */}
-          <div className="absolute bottom-4 left-4 right-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-            <Button 
-              className="w-full bg-white text-black hover:bg-gray-100"
-              onClick={handleAddToCart}
-              data-testid={`button-add-cart-${product.id}`}
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Quick Add
-            </Button>
+            {tag}
           </div>
-        </div>
+        ))}
 
-        {/* Product Info */}
-        <div className="mt-4 space-y-2">
-          <h3 className="font-medium text-sm lg:text-base line-clamp-2" data-testid={`text-name-${product.id}`}>
-            {product.name}
-          </h3>
-          
-          {/* Rating */}
-          <div className="flex items-center gap-1">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-3 w-3 ${
-                    i < Math.floor(product.rating) 
-                      ? 'text-yellow-400 fill-current' 
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-xs text-gray-500">
-              {product.rating} ({product.reviewCount})
-            </span>
+        {/* Discount Badge */}
+        {discount > 0 && (
+          <div
+            className="absolute top-4 left-4 bg-grind-accent text-white px-3 py-1 rounded-full text-sm font-semibold"
+            style={{ marginTop: (product.tags?.length || 0) > 0 ? "2.5rem" : "0" }}
+            data-testid={`discount-badge-${product.id}`}
+          >
+            {discount}% OFF
           </div>
+        )}
 
-          {/* Price */}
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-lg" data-testid={`text-price-${product.id}`}>
-              ${product.price.toFixed(2)}
-            </span>
-            {product.originalPrice && (
-              <span className="text-sm text-gray-500 line-through">
-                ${product.originalPrice.toFixed(2)}
-              </span>
-            )}
-          </div>
-
-          {/* Colors */}
-          {product.colors.length > 0 && (
-            <div className="flex items-center gap-1">
-              {product.colors.slice(0, 4).map((color) => (
-                <div
-                  key={color.name}
-                  className="w-4 h-4 rounded-full border border-gray-300"
-                  style={{ backgroundColor: color.value }}
-                  title={color.name}
-                />
-              ))}
-              {product.colors.length > 4 && (
-                <span className="text-xs text-gray-500 ml-1">
-                  +{product.colors.length - 4}
-                </span>
-              )}
-            </div>
-          )}
+        {/* Quick View Overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+          <button
+            className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all"
+            onClick={() => onQuickView(product)}
+            data-testid={`button-quick-view-${product.id}`}
+          >
+            Quick View
+          </button>
         </div>
       </div>
-    </Link>
+
+      <div className="p-6">
+        <h3 className="font-poppins font-semibold text-lg mb-2" data-testid={`text-product-name-${product.id}`}>
+          {product.name}
+        </h3>
+        <p className="text-gray-400 mb-4" data-testid={`text-product-description-${product.id}`}>
+          {product.description}
+        </p>
+
+        {/* Color Options */}
+        {product.colors.length > 0 && (
+          <div className="flex space-x-2 mb-4" data-testid={`color-options-${product.id}`}>
+            {product.colors.map((color) => (
+              <div
+                key={color.name}
+                className={`color-option ${selectedColor === color.name ? "selected" : ""}`}
+                style={{ backgroundColor: color.value }}
+                onClick={() => setSelectedColor(color.name)}
+                data-testid={`color-option-${color.name.toLowerCase()}`}
+              ></div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {product.originalPrice && (
+              <span className="text-gray-400 line-through" data-testid={`text-original-price-${product.id}`}>
+                {product.originalPrice} EGP
+              </span>
+            )}
+            <span className="text-xl font-bold" data-testid={`text-price-${product.id}`}>
+              {product.price} EGP
+            </span>
+          </div>
+          <button
+            className="bg-grind-primary hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50"
+            onClick={handleAddToCart}
+            disabled={isAddingToCart}
+            data-testid={`button-add-cart-${product.id}`}
+          >
+            {isAddingToCart ? "Adding..." : "Add to Cart"}
+          </button>
+        </div>
+
+        {/* Rating */}
+        <div className="flex items-center mt-3" data-testid={`rating-${product.id}`}>
+          <div className="flex text-yellow-400">
+            {[...Array(5)].map((_, i) => (
+              <i
+                key={i}
+                className={`${
+                  i < Math.floor(parseFloat(product.rating || "0"))
+                    ? "fas fa-star"
+                    : "far fa-star"
+                }`}
+              ></i>
+            ))}
+          </div>
+          <span className="text-gray-400 text-sm ml-2">
+            ({product.reviewCount} reviews)
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
