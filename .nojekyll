@@ -1,0 +1,2 @@
+# Prevent GitHub Pages from processing the site with Jekyll
+# This ensures that files and folders starting with an underscore are served correctly.
