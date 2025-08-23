@@ -263,6 +263,17 @@
                         </button>
                     </form>
                 </div>
+                <!-- Contact Us Section -->
+                <div class="footer-section">
+                    <h3>Contact Us</h3>
+                    <p>Have a question or feedback? Send us a message.</p>
+                    <form class="contact-form" id="contactForm">
+                        <input type="text" name="name" placeholder="Your name" required>
+                        <input type="email" name="email" placeholder="Your email" required>
+                        <textarea name="message" placeholder="Your message" rows="3" required></textarea>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
             </div>
             <div class="footer-bottom">
                 <p>&copy; 2025 GrindCTRL. All rights reserved.</p>
@@ -398,22 +409,8 @@
     </button>
 
     <!-- Configuration -->
-    <script>
-        window.CONFIG = {
-            WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/test2git',
-            API_ENDPOINTS: {
-                NEWSLETTER: '/api/newsletter',
-                CONTACT: '/api/contact'
-            },
-            SETTINGS: {
-                CART_PERSISTENCE: true,
-                WISHLIST_PERSISTENCE: true,
-                ANIMATIONS_ENABLED: true,
-                LAZY_LOADING: true
-            }
-        };
-    </script>
-
+    <!-- Load configuration before main script so settings are available globally -->
+    <script src="config.js"></script>
     <!-- Main JavaScript -->
     <script src="main.js"></script>
 </body>
