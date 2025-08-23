@@ -179,9 +179,10 @@ class AppState {
                     </div>
                     <div class="cart-item-controls">
                         <div class="quantity-controls">
-                            <button class="quantity-btn" onclick="app.updateCartQuantity('${item.id}', ${item.quantity - 1})">-</button>
+                            <!-- Use changeCartQuantity to always compute the new quantity based on current state -->
+                            <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', -1)">-</button>
                             <span class="quantity">${item.quantity}</span>
-                            <button class="quantity-btn" onclick="app.updateCartQuantity('${item.id}', ${item.quantity + 1})">+</button>
+                            <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', 1)">+</button>
                         </div>
                         <div class="cart-item-price">${(item.price * item.quantity).toFixed(2)} EGP</div>
                     </div>
@@ -492,38 +493,49 @@ class GrindCTRLApp {
     }
 
     async init() {
+        /**
+         * The initialization routine sets up the application state, fetches
+         * products, attaches event listeners, and triggers the first render.
+         * Regardless of success or failure, the loading screen should be
+         * dismissed so the user isn't stuck watching the spinner forever.
+         */
         try {
             this.loading.show('init');
-            
-            // Load product data
+
+            // Load product data.  If this fails, loadProducts() will fall
+            // back to embedded data.  Any error thrown beyond that will be
+            // caught below.
             await this.loadProducts();
-            
+
             // Initialize UI components
             this.initializeEventListeners();
             this.initializeNavigation();
             this.initializeModals();
             this.initializeBackToTop();
             this.initializeNewsletterForm();
-            
+            this.initializeContactForm();
+
             // Render initial content
             this.renderCategories();
             this.renderProducts();
             this.state.updateCartUI();
             this.state.updateWishlistUI();
-            
+
             // Initialize scroll animations
             setTimeout(() => {
                 this.scrollAnimations = new ScrollAnimations();
             }, 100);
-            
-            this.loading.hide('init');
-            
+
             console.log('GrindCTRL App initialized successfully');
-            
+
         } catch (error) {
             console.error('Failed to initialize app:', error);
             this.notifications.error('Failed to load the application. Please refresh the page.');
+            // In case of a critical failure, hide all loading tasks
             this.loading.hideAll();
+        } finally {
+            // Always hide the loading screen after initialization attempt
+            this.loading.hide('init');
         }
     }
 
@@ -677,6 +689,40 @@ class GrindCTRLApp {
                 } else {
                     this.notifications.error('Please enter a valid email address.');
                 }
+            });
+        }
+    }
+
+    /**
+     * Initialize the contact form submission handler.  When the user
+     * submits the form, we display a success toast and reset the fields.
+     * No network request is made in this static implementation, but
+     * this provides immediate feedback for the user.
+     */
+    initializeContactForm() {
+        const form = document.getElementById('contactForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = form.querySelector('input[name="name"]').value.trim();
+                const email = form.querySelector('input[name="email"]').value.trim();
+                const message = form.querySelector('textarea[name="message"]').value.trim();
+                // Basic validation
+                if (!name) {
+                    this.notifications.error('Please enter your name.');
+                    return;
+                }
+                if (!Utils.validateEmail(email)) {
+                    this.notifications.error('Please enter a valid email address.');
+                    return;
+                }
+                if (!message) {
+                    this.notifications.error('Please enter a message.');
+                    return;
+                }
+                // In a real implementation you would send this data to a backend
+                this.notifications.success('Thank you for reaching out! We will get back to you soon.');
+                form.reset();
             });
         }
     }
@@ -845,6 +891,12 @@ class GrindCTRLApp {
             card.style.animationDelay = `${index * 0.1}s`;
             card.classList.add('fade-in');
         });
+
+        // After filtering, scroll to the collection section so the grid is visible.
+        const collectionSection = document.getElementById('collection');
+        if (collectionSection) {
+            Utils.scrollToElement(collectionSection, 80);
+        }
     }
 
     addToCartQuick(productId) {
@@ -893,6 +945,36 @@ class GrindCTRLApp {
                 btn.classList.toggle('active', added);
             }
         });
+    }
+
+    /**
+     * Forward cart quantity updates to the AppState.  Without this wrapper,
+     * the inline handlers in the cart attempted to call a nonexistent
+     * `updateCartQuantity` method on the GrindCTRLApp instance, resulting in
+     * no change when clicking the plus/minus buttons.  This wrapper
+     * delegates the call to AppState and ensures the cart re-renders.
+     * @param {string} itemId The unique cart item id
+     * @param {number} quantity The quantity to set
+     */
+    updateCartQuantity(itemId, quantity) {
+        this.state.updateCartQuantity(itemId, quantity);
+    }
+
+    /**
+     * Adjust a cart item's quantity relative to its current value.  This
+     * convenience method reads the latest quantity from the state and
+     * computes the new value, avoiding stale numbers baked into the
+     * generated HTML.  Use a positive delta to increment and negative
+     * to decrement.  If the result is zero or less, the item will be
+     * removed.
+     * @param {string} itemId The unique cart item id
+     * @param {number} delta The increment/decrement amount
+     */
+    changeCartQuantity(itemId, delta) {
+        const item = this.state.cart.find(item => item.id === itemId);
+        if (!item) return;
+        const newQuantity = item.quantity + delta;
+        this.state.updateCartQuantity(itemId, newQuantity);
     }
 
     openQuickView(productId) {
@@ -1473,28 +1555,74 @@ class GrindCTRLApp {
 
     async sendOrderToWebhook(orderData) {
         const webhookUrl = window.CONFIG?.WEBHOOK_URL;
-        
-        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED') {
+
+        // If no webhook is defined, simulate a delay and return success.
+        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
             console.warn('Webhook URL not configured');
-            // For demo purposes, simulate success
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             return true;
         }
 
+        // Strategy 1: sendBeacon – this avoids CORS preflight and is
+        // designed for sending analytics-like data to arbitrary endpoints.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(webhookUrl, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('sendBeacon webhook attempt failed:', err);
+        }
+
+        // Strategy 2: POST using no-cors.  Avoid setting custom headers to
+        // prevent the browser from issuing a preflight request.  The
+        // response will be opaque, but the request will still be sent.
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(orderData)
+            });
+            return true;
+        } catch (err) {
+            console.warn('no-cors POST webhook attempt failed:', err);
+        }
+
+        // Strategy 3: GET via query string.  Some webhook endpoints accept
+        // GET requests.  Encode the payload to avoid CORS and preflight.
+        try {
+            const query = encodeURIComponent(JSON.stringify(orderData));
+            const urlWithQuery = `${webhookUrl}?payload=${query}`;
+            await fetch(urlWithQuery, { method: 'GET', mode: 'no-cors' });
+            return true;
+        } catch (err) {
+            console.error('Webhook GET attempt failed:', err);
+        }
+
+        // Strategy 4: Try a CORS-compliant POST.  If the webhook
+        // endpoint has appropriate CORS headers set (e.g. Access-Control-Allow-Origin),
+        // this will succeed.  We include this last because it incurs a
+        // preflight check but can be the only path that n8n accepts.
         try {
             const response = await fetch(webhookUrl, {
                 method: 'POST',
+                mode: 'cors',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(orderData)
             });
-
-            return response.ok;
-        } catch (error) {
-            console.error('Webhook error:', error);
-            return false;
+            if (response.ok) {
+                return true;
+            }
+        } catch (err) {
+            console.error('CORS POST webhook attempt failed:', err);
         }
+
+        // If all methods fail, return false so the caller can handle
+        // notification and rollback.
+        return false;
     }
 
     showOrderSuccess(orderData) {
