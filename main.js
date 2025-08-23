@@ -1558,12 +1558,15 @@ class GrindCTRLApp {
         // indicate success.  Otherwise, fetch may throw or response.ok will
         // be false.
         try {
-            const response = await fetch(webhookUrl, {
+            // Use no-cors mode to allow sending requests to third-party endpoints without CORS preflight.
+            // In no-cors mode the response is opaque and status is 0, so we cannot rely on response.ok.
+            await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(orderData),
+<<<<<<< HEAD
                 mode: 'cors'
             });
             if (response.ok) {
@@ -1592,6 +1595,12 @@ class GrindCTRLApp {
                 body: JSON.stringify(orderData),
                 mode: 'no-cors'
             });
+=======
+                mode: 'no-cors'
+            });
+            // If no exception was thrown, assume success.  Many webhook services do not return CORS headers
+            // which would otherwise cause fetch to reject.
+>>>>>>> 9c688725b7d5cb76935ca0f96bb6c06381dab7b9
             return true;
         } catch (error) {
             console.error('Webhook error:', error);

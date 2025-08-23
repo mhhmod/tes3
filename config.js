@@ -23,4 +23,8 @@ window.CONFIG = {
     ANIMATIONS_ENABLED: true,
     LAZY_LOADING: true
   }
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 9c688725b7d5cb76935ca0f96bb6c06381dab7b9
