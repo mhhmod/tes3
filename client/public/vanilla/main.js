@@ -506,6 +506,10 @@ class GrindCTRLApp {
             this.initializeBackToTop();
             this.initializeNewsletterForm();
             this.initializeContactForm();
+
+            // Initialize return/exchange form handlers so customers can request
+            // returns or exchanges from the footer at any time.
+            this.initializeReturnExchangeForms();
             
             // Render initial content
             this.renderCategories();
@@ -1842,6 +1846,50 @@ class GrindCTRLApp {
      */
     handleReturnOrder() {
         this.notifications.info('Return request received. Our team will contact you shortly.');
+    }
+
+    /**
+     * Open the return order modal.  This simply delegates to openModal with
+     * the appropriate id.
+     */
+    openReturnModal() {
+        this.openModal('return');
+    }
+
+    /**
+     * Open the exchange order modal.
+     */
+    openExchangeModal() {
+        this.openModal('exchange');
+    }
+
+    /**
+     * Attach submit handlers to the return and exchange forms.  These forms
+     * live in the footer and allow customers to request a return or
+     * exchange without placing a new order.  On submission we simply
+     * display a toast message and reset/close the modal.
+     */
+    initializeReturnExchangeForms() {
+        // Return form handling
+        const returnForm = document.getElementById('returnForm');
+        if (returnForm) {
+            returnForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.notifications.success('Return request submitted! Our support team will contact you soon.');
+                returnForm.reset();
+                this.closeModal('return');
+            });
+        }
+        // Exchange form handling
+        const exchangeForm = document.getElementById('exchangeForm');
+        if (exchangeForm) {
+            exchangeForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.notifications.success('Exchange request submitted! Our support team will contact you soon.');
+                exchangeForm.reset();
+                this.closeModal('exchange');
+            });
+        }
     }
 }
 

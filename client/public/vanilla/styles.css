@@ -2013,6 +2013,36 @@ a {
     background: var(--primary-hover);
 }
 
+/* Shared styles for return/exchange forms */
+.return-exchange-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.return-exchange-form input,
+.return-exchange-form textarea {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    background: var(--background-dark);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.return-exchange-form button {
+    align-self: flex-start;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius-md);
+    transition: all var(--transition-fast);
+}
+
+.return-exchange-form button:hover {
+    background: var(--primary-hover);
+}
+
 .footer-bottom {
     display: flex;
     justify-content: space-between;

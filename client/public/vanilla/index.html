@@ -251,8 +251,11 @@
                     <ul>
                         <li><a href="#" onclick="openSizeGuide()">Size Guide</a></li>
                         <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
+                        <li><a href="#">Return Policy</a></li>
                         <li><a href="#">FAQ</a></li>
+                        <!-- Added direct actions for initiating a return or exchange -->
+                        <li><a href="#" onclick="app.openReturnModal()">Return Order</a></li>
+                        <li><a href="#" onclick="app.openExchangeModal()">Exchange Order</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
@@ -410,6 +413,48 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Order Modal -->
+    <div class="modal" id="returnModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Return Order</h3>
+                <button class="modal-close" onclick="app.closeModal('return')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="returnForm" class="return-exchange-form">
+                    <input type="text" name="name" placeholder="Your name" required>
+                    <input type="email" name="email" placeholder="Your email" required>
+                    <input type="text" name="orderId" placeholder="Order ID" required>
+                    <textarea name="message" placeholder="Reason for return" rows="3" required></textarea>
+                    <button type="submit" class="btn btn-primary">Submit Return Request</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Order Modal -->
+    <div class="modal" id="exchangeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Exchange Order</h3>
+                <button class="modal-close" onclick="app.closeModal('exchange')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="exchangeForm" class="return-exchange-form">
+                    <input type="text" name="name" placeholder="Your name" required>
+                    <input type="email" name="email" placeholder="Your email" required>
+                    <input type="text" name="orderId" placeholder="Order ID" required>
+                    <textarea name="message" placeholder="Reason for exchange" rows="3" required></textarea>
+                    <button type="submit" class="btn btn-primary">Submit Exchange Request</button>
+                </form>
             </div>
         </div>
     </div>
