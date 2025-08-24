@@ -8,7 +8,7 @@ window.CONFIG = {
   // The webhook URL that receives order data on checkout.  Leave blank
   // or set to your n8n or backend endpoint.  For local testing
   // you can use a service like webhook.site.
-  WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/test2git',
+  WEBHOOK_URL: '',
 
   // API endpoints for ancillary features.  These aren’t used in the
   // current static implementation but are here for future integration.

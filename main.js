@@ -1840,6 +1840,23 @@ class GrindCTRLApp {
             }
         }
     }
+
+    /**
+     * Handle a customer's request to exchange the recently placed order.
+     * Displays a toast notification; in a real implementation this would
+     * trigger backend logic or show a form.
+     */
+    handleExchangeOrder() {
+        this.notifications.info('Exchange request received. Our team will contact you shortly.');
+    }
+
+    /**
+     * Handle a customer's request to return the recently placed order.
+     * Displays a toast notification; this is a placeholder for real return logic.
+     */
+    handleReturnOrder() {
+        this.notifications.info('Return request received. Our team will contact you shortly.');
+    }
 }
 
 // ===== GLOBAL FUNCTIONS =====

@@ -2121,6 +2121,14 @@ a {
     margin: 0 auto;
 }
 
+/* Order actions container for Exchange/Return buttons in success modal */
+.order-actions {
+    margin-top: var(--spacing-lg);
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+}
+
 .success-icon {
     font-size: 4rem;
     color: var(--success-color);

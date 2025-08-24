@@ -400,6 +400,15 @@
                     <button class="btn btn-primary" onclick="closeSuccessModal()">
                         Continue Shopping
                     </button>
+                    <!-- Added order action buttons for exchanges and returns -->
+                    <div class="order-actions">
+                        <button class="btn btn-secondary" onclick="app.handleExchangeOrder()">
+                            Exchange Order
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.handleReturnOrder()" style="margin-left: var(--spacing-sm);">
+                            Return Order
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
