@@ -1949,35 +1949,42 @@ class GrindCTRLApp {
         };
 
         /**
-         * Populate a select element with orders and show/hide it.  Also sets
-         * the associated submit button enabled/disabled based on selection.
-         * @param {HTMLElement} orderSelect The <select> element to populate.
+         * Populate the order list container with clickable radio items.  Each
+         * order is represented as a radio input inside a styled div.  The
+         * submit button is disabled until the user selects one.
+         * @param {HTMLElement} container The container element to populate.
          * @param {Array<Object>} orders The orders for the given phone.
          * @param {HTMLElement} submitBtn The submit <button> element.
          */
-        const populateOrderSelect = (orderSelect, orders, submitBtn) => {
-            orderSelect.innerHTML = '';
+        const populateOrderSelect = (container, orders, submitBtn) => {
+            container.innerHTML = '';
             if (!orders || orders.length === 0) {
-                orderSelect.style.display = 'none';
+                container.style.display = 'none';
                 submitBtn.disabled = true;
                 return;
             }
-            // Add a placeholder option
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Select your order';
-            placeholder.disabled = true;
-            placeholder.selected = true;
-            orderSelect.appendChild(placeholder);
             orders.forEach(order => {
-                const opt = document.createElement('option');
-                opt.value = order['Order ID'];
-                // Build a short description: order ID and total
-                opt.textContent = `${order['Order ID']} – ${order.Total} ${order.Currency || ''}`;
-                orderSelect.appendChild(opt);
+                const item = document.createElement('div');
+                item.className = 'order-item';
+                const label = document.createElement('label');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = `${container.id}_radio`;
+                radio.value = order['Order ID'];
+                label.appendChild(radio);
+                const text = document.createTextNode(`${order['Order ID']} – ${order.Total} ${order.Currency || ''}`);
+                label.appendChild(text);
+                item.appendChild(label);
+                container.appendChild(item);
             });
-            orderSelect.style.display = '';
+            container.style.display = '';
             submitBtn.disabled = true;
+            // Enable submit when an order is chosen
+            container.addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="radio"]')) {
+                    submitBtn.disabled = false;
+                }
+            });
         };
 
         /**
@@ -1987,13 +1994,12 @@ class GrindCTRLApp {
          * @param {string} selectId ID of the order select dropdown.
          * @param {string} submitId ID of the submit button.
          */
-        const attachLookupHandlers = (phoneId, buttonId, selectId, submitId) => {
+        const attachLookupHandlers = (phoneId, buttonId, containerId, submitId) => {
             const phoneInput = document.getElementById(phoneId);
             const findBtn = document.getElementById(buttonId);
-            const orderSelect = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
             const submitBtn = document.getElementById(submitId);
-            if (!phoneInput || !findBtn || !orderSelect || !submitBtn) return;
-
+            if (!phoneInput || !findBtn || !container || !submitBtn) return;
             findBtn.addEventListener('click', () => {
                 const phone = phoneInput.value.trim();
                 if (!phone) {
@@ -2003,20 +2009,17 @@ class GrindCTRLApp {
                 const orders = getOrdersByPhone(phone);
                 if (orders.length === 0) {
                     this.notifications.error('No orders found for this phone number.');
-                    populateOrderSelect(orderSelect, [], submitBtn);
+                    populateOrderSelect(container, [], submitBtn);
                     return;
                 }
-                populateOrderSelect(orderSelect, orders, submitBtn);
-            });
-            orderSelect.addEventListener('change', () => {
-                submitBtn.disabled = !orderSelect.value;
+                populateOrderSelect(container, orders, submitBtn);
             });
         };
 
         // Attach handlers for Return
-        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderSelect', 'returnSubmit');
+        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderList', 'returnSubmit');
         // Attach handlers for Exchange
-        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderSelect', 'exchangeSubmit');
+        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderList', 'exchangeSubmit');
 
         // Submit handlers for return and exchange forms
         const returnForm = document.getElementById('returnForm');

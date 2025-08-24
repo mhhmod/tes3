@@ -2092,6 +2092,30 @@ a {
     background: var(--primary-hover);
 }
 
+/* Order list container for return/exchange lookup */
+.order-list {
+    margin-top: var(--spacing-md);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Individual order item styling */
+.order-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-sm);
+    cursor: pointer;
+}
+.order-item input[type="radio"] {
+    margin-right: var(--spacing-sm);
+}
+.order-item:hover {
+    background-color: var(--background-light);
+}
+
 .footer-bottom {
     display: flex;
     justify-content: space-between;

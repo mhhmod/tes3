@@ -439,7 +439,8 @@
                 <form id="returnForm" class="return-exchange-form">
                     <input type="tel" id="returnPhone" placeholder="Your phone number" required>
                     <button type="button" id="findReturnOrders" class="btn btn-secondary">Find Orders</button>
-                    <select id="returnOrderSelect" style="display: none;"></select>
+                    <!-- Container that will list orders associated with the entered phone number.  Hidden until populated. -->
+                    <div id="returnOrderList" class="order-list" style="display: none;"></div>
                     <textarea id="returnMessage" placeholder="Reason for return" rows="3" required></textarea>
                     <button type="submit" id="returnSubmit" class="btn btn-primary" disabled>Submit Return Request</button>
                 </form>
@@ -460,7 +461,7 @@
                 <form id="exchangeForm" class="return-exchange-form">
                     <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
                     <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
-                    <select id="exchangeOrderSelect" style="display: none;"></select>
+                    <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
                     <textarea id="exchangeMessage" placeholder="Reason for exchange" rows="3" required></textarea>
                     <button type="submit" id="exchangeSubmit" class="btn btn-primary" disabled>Submit Exchange Request</button>
                 </form>

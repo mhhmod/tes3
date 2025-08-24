@@ -1928,34 +1928,41 @@ class GrindCTRLApp {
                 return [];
             }
         };
-        const populateOrderSelect = (orderSelect, orders, submitBtn) => {
-            orderSelect.innerHTML = '';
+        const populateOrderSelect = (container, orders, submitBtn) => {
+            container.innerHTML = '';
             if (!orders || orders.length === 0) {
-                orderSelect.style.display = 'none';
+                container.style.display = 'none';
                 submitBtn.disabled = true;
                 return;
             }
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Select your order';
-            placeholder.disabled = true;
-            placeholder.selected = true;
-            orderSelect.appendChild(placeholder);
             orders.forEach(order => {
-                const opt = document.createElement('option');
-                opt.value = order['Order ID'];
-                opt.textContent = `${order['Order ID']} – ${order.Total} ${order.Currency || ''}`;
-                orderSelect.appendChild(opt);
+                const item = document.createElement('div');
+                item.className = 'order-item';
+                const label = document.createElement('label');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = `${container.id}_radio`;
+                radio.value = order['Order ID'];
+                label.appendChild(radio);
+                const text = document.createTextNode(`${order['Order ID']} – ${order.Total} ${order.Currency || ''}`);
+                label.appendChild(text);
+                item.appendChild(label);
+                container.appendChild(item);
             });
-            orderSelect.style.display = '';
+            container.style.display = '';
             submitBtn.disabled = true;
+            container.addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="radio"]')) {
+                    submitBtn.disabled = false;
+                }
+            });
         };
-        const attachLookupHandlers = (phoneId, buttonId, selectId, submitId) => {
+        const attachLookupHandlers = (phoneId, buttonId, containerId, submitId) => {
             const phoneInput = document.getElementById(phoneId);
             const findBtn = document.getElementById(buttonId);
-            const orderSelect = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
             const submitBtn = document.getElementById(submitId);
-            if (!phoneInput || !findBtn || !orderSelect || !submitBtn) return;
+            if (!phoneInput || !findBtn || !container || !submitBtn) return;
             findBtn.addEventListener('click', () => {
                 const phone = phoneInput.value.trim();
                 if (!phone) {
@@ -1965,17 +1972,14 @@ class GrindCTRLApp {
                 const orders = getOrdersByPhone(phone);
                 if (orders.length === 0) {
                     this.notifications.error('No orders found for this phone number.');
-                    populateOrderSelect(orderSelect, [], submitBtn);
+                    populateOrderSelect(container, [], submitBtn);
                     return;
                 }
-                populateOrderSelect(orderSelect, orders, submitBtn);
-            });
-            orderSelect.addEventListener('change', () => {
-                submitBtn.disabled = !orderSelect.value;
+                populateOrderSelect(container, orders, submitBtn);
             });
         };
-        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderSelect', 'returnSubmit');
-        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderSelect', 'exchangeSubmit');
+        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderList', 'returnSubmit');
+        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderList', 'exchangeSubmit');
         const returnForm = document.getElementById('returnForm');
         if (returnForm) {
             returnForm.addEventListener('submit', (e) => {
