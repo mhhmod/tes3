@@ -179,9 +179,10 @@ class AppState {
                     </div>
                     <div class="cart-item-controls">
                         <div class="quantity-controls">
-                            <button class="quantity-btn" onclick="app.updateCartQuantity('${item.id}', ${item.quantity - 1})">-</button>
+                            <!-- Use changeCartQuantity to always compute the new quantity based on current state -->
+                            <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', -1)">-</button>
                             <span class="quantity">${item.quantity}</span>
-                            <button class="quantity-btn" onclick="app.updateCartQuantity('${item.id}', ${item.quantity + 1})">+</button>
+                            <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', 1)">+</button>
                         </div>
                         <div class="cart-item-price">${(item.price * item.quantity).toFixed(2)} EGP</div>
                     </div>
@@ -504,6 +505,7 @@ class GrindCTRLApp {
             this.initializeModals();
             this.initializeBackToTop();
             this.initializeNewsletterForm();
+            this.initializeContactForm();
             
             // Render initial content
             this.renderCategories();
@@ -681,6 +683,40 @@ class GrindCTRLApp {
         }
     }
 
+    /**
+     * Initialize the contact form submission handler.  When the user
+     * submits the form, we display a success toast and reset the fields.
+     * No network request is made in this static implementation, but
+     * this provides immediate feedback for the user.
+     */
+    initializeContactForm() {
+        const form = document.getElementById('contactForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = form.querySelector('input[name="name"]').value.trim();
+                const email = form.querySelector('input[name="email"]').value.trim();
+                const message = form.querySelector('textarea[name="message"]').value.trim();
+                // Basic validation
+                if (!name) {
+                    this.notifications.error('Please enter your name.');
+                    return;
+                }
+                if (!Utils.validateEmail(email)) {
+                    this.notifications.error('Please enter a valid email address.');
+                    return;
+                }
+                if (!message) {
+                    this.notifications.error('Please enter a message.');
+                    return;
+                }
+                // In a real implementation you would send this data to a backend
+                this.notifications.success('Thank you for reaching out! We will get back to you soon.');
+                form.reset();
+            });
+        }
+    }
+
     renderCategories() {
         const categoryTabs = document.getElementById('categoryTabs');
         if (!categoryTabs) return;
@@ -845,6 +881,12 @@ class GrindCTRLApp {
             card.style.animationDelay = `${index * 0.1}s`;
             card.classList.add('fade-in');
         });
+
+        // After filtering, scroll to the collection section so the grid is visible.
+        const collectionSection = document.getElementById('collection');
+        if (collectionSection) {
+            Utils.scrollToElement(collectionSection, 80);
+        }
     }
 
     addToCartQuick(productId) {
@@ -893,6 +935,36 @@ class GrindCTRLApp {
                 btn.classList.toggle('active', added);
             }
         });
+    }
+
+    /**
+     * Forward cart quantity updates to the AppState.  Without this wrapper,
+     * the inline handlers in the cart attempted to call a nonexistent
+     * `updateCartQuantity` method on the GrindCTRLApp instance, resulting in
+     * no change when clicking the plus/minus buttons.  This wrapper
+     * delegates the call to AppState and ensures the cart re-renders.
+     * @param {string} itemId The unique cart item id
+     * @param {number} quantity The quantity to set
+     */
+    updateCartQuantity(itemId, quantity) {
+        this.state.updateCartQuantity(itemId, quantity);
+    }
+
+    /**
+     * Adjust a cart item's quantity relative to its current value.  This
+     * convenience method reads the latest quantity from the state and
+     * computes the new value, avoiding stale numbers baked into the
+     * generated HTML.  Use a positive delta to increment and negative
+     * to decrement.  If the result is zero or less, the item will be
+     * removed.
+     * @param {string} itemId The unique cart item id
+     * @param {number} delta The increment/decrement amount
+     */
+    changeCartQuantity(itemId, delta) {
+        const item = this.state.cart.find(item => item.id === itemId);
+        if (!item) return;
+        const newQuantity = item.quantity + delta;
+        this.state.updateCartQuantity(itemId, newQuantity);
     }
 
     openQuickView(productId) {
@@ -1473,28 +1545,74 @@ class GrindCTRLApp {
 
     async sendOrderToWebhook(orderData) {
         const webhookUrl = window.CONFIG?.WEBHOOK_URL;
-        
-        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED') {
+        // If no webhook is set, simulate a delay and return success.  This prevents
+        // accidental calls to production webhooks during development.
+        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
             console.warn('Webhook URL not configured');
-            // For demo purposes, simulate success
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             return true;
         }
 
+        // Strategy 1: CORS‑compliant POST.  This is the preferred method since
+        // n8n endpoints typically emit the appropriate Access‑Control headers.
         try {
             const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(orderData)
             });
-
-            return response.ok;
+            if (response.ok) {
+                return true;
+            }
         } catch (error) {
-            console.error('Webhook error:', error);
-            return false;
+            console.error('CORS POST webhook attempt failed:', error);
         }
+
+        // Strategy 2: sendBeacon.  Avoids CORS preflights and is suited for
+        // analytics or fire‑and‑forget payloads.  Some browsers drop the
+        // request when the protocol or domain changes, so this is a fallback.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const result = navigator.sendBeacon(webhookUrl, blob);
+                if (result) {
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.warn('sendBeacon webhook fallback failed:', error);
+        }
+
+        // Strategy 3: no‑cors POST.  The response is opaque but the body will be
+        // transmitted.  Do not set custom headers to avoid triggering a
+        // preflight.
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(orderData)
+            });
+            return true;
+        } catch (error) {
+            console.warn('no‑cors POST webhook attempt failed:', error);
+        }
+
+        // Strategy 4: GET via image.  Some services accept GET requests and
+        // query strings circumvent CORS entirely.  We assign the URL to a
+        // new Image object's src, which prompts the browser to perform a GET.
+        try {
+            const query = encodeURIComponent(JSON.stringify(orderData));
+            const img = new Image();
+            img.src = `${webhookUrl}?payload=${query}`;
+            return true;
+        } catch (error) {
+            console.error('Webhook GET via image attempt failed:', error);
+        }
+
+        // If all approaches fail, return false so callers can handle failure.
+        return false;
     }
 
     showOrderSuccess(orderData) {

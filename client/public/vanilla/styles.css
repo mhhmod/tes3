@@ -493,7 +493,8 @@ a {
 
 .section-header {
     text-align: center;
-    margin-bottom: var(--spacing-3xl);
+    /* Reduce bottom margin to prevent excessive vertical gaps */
+    margin-bottom: var(--spacing-2xl);
 }
 
 .section-title {
@@ -514,7 +515,9 @@ a {
 .category-filter {
     display: flex;
     justify-content: center;
-    margin-bottom: var(--spacing-3xl);
+    /* Reduce vertical gap between the filter and products grid */
+    /* Reduce vertical gap between the filter tabs and products grid */
+    margin-bottom: var(--spacing-lg);
 }
 
 .filter-tabs {
@@ -603,15 +606,13 @@ a {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    opacity: 0;
-    transform: translateX(20px);
+    /* Always show action buttons (wishlist & quick view) instead of only on hover */
+    opacity: 1;
+    transform: translateX(0);
     transition: all var(--transition-medium);
 }
 
-.product-card:hover .product-actions {
-    opacity: 1;
-    transform: translateX(0);
-}
+/* Remove hover requirement for action buttons */
 
 .action-btn {
     width: 40px;
@@ -676,6 +677,8 @@ a {
     justify-content: center;
     opacity: 0;
     transition: opacity var(--transition-medium);
+    /* Disable pointer events on the overlay itself so underlying action buttons (e.g. wishlist) remain clickable */
+    pointer-events: none;
 }
 
 .product-card:hover .quick-view-overlay {
@@ -689,6 +692,8 @@ a {
     border-radius: var(--border-radius-md);
     font-weight: 600;
     transition: all var(--transition-fast);
+    /* Re-enable pointer events on the Quick View button so it is still interactive */
+    pointer-events: auto;
 }
 
 .quick-view-btn:hover {
@@ -1025,11 +1030,13 @@ a {
 }
 
 .cart-close {
-    width: 32px;
-    height: 32px;
+    /* Increase hit area for the cart close button for better usability */
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: transparent;
     color: var(--text-secondary);
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1197,11 +1204,13 @@ a {
 }
 
 .wishlist-close {
-    width: 32px;
-    height: 32px;
+    /* Increase hit area for the wishlist close button for better usability */
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: transparent;
     color: var(--text-secondary);
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1355,11 +1364,13 @@ a {
 }
 
 .modal-close {
-    width: 36px;
-    height: 36px;
+    /* Increase hit area for modal close buttons */
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: transparent;
     color: var(--text-secondary);
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1969,6 +1980,36 @@ a {
 }
 
 .newsletter-form button:hover {
+    background: var(--primary-hover);
+}
+
+/* ===== CONTACT FORM STYLES ===== */
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.contact-form input,
+.contact-form textarea {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    background: var(--background-dark);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.contact-form button {
+    align-self: flex-start;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius-md);
+    transition: all var(--transition-fast);
+}
+
+.contact-form button:hover {
     background: var(--primary-hover);
 }
 
