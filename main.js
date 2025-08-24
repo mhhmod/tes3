@@ -1555,59 +1555,20 @@ class GrindCTRLApp {
 
     async sendOrderToWebhook(orderData) {
         const webhookUrl = window.CONFIG?.WEBHOOK_URL;
-
-        // If no webhook is defined, simulate a delay and return success.
+        // If no webhook is defined, simulate a delay and return success.  This allows
+        // local testing without spamming external services.
         if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
             console.warn('Webhook URL not configured');
             await new Promise(resolve => setTimeout(resolve, 1500));
             return true;
         }
 
-        // Strategy 1: sendBeacon – this avoids CORS preflight and is
-        // designed for sending analytics-like data to arbitrary endpoints.
-        try {
-            if (navigator && typeof navigator.sendBeacon === 'function') {
-                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
-                const ok = navigator.sendBeacon(webhookUrl, blob);
-                if (ok) return true;
-            }
-        } catch (err) {
-            console.warn('sendBeacon webhook attempt failed:', err);
-        }
-
-        // Strategy 2: POST using no-cors.  Avoid setting custom headers to
-        // prevent the browser from issuing a preflight request.  The
-        // response will be opaque, but the request will still be sent.
-        try {
-            await fetch(webhookUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(orderData)
-            });
-            return true;
-        } catch (err) {
-            console.warn('no-cors POST webhook attempt failed:', err);
-        }
-
-        // Strategy 3: GET via query string.  Some webhook endpoints accept
-        // GET requests.  Encode the payload to avoid CORS and preflight.
-        try {
-            const query = encodeURIComponent(JSON.stringify(orderData));
-            const urlWithQuery = `${webhookUrl}?payload=${query}`;
-            await fetch(urlWithQuery, { method: 'GET', mode: 'no-cors' });
-            return true;
-        } catch (err) {
-            console.error('Webhook GET attempt failed:', err);
-        }
-
-        // Strategy 4: Try a CORS-compliant POST.  If the webhook
-        // endpoint has appropriate CORS headers set (e.g. Access-Control-Allow-Origin),
-        // this will succeed.  We include this last because it incurs a
-        // preflight check but can be the only path that n8n accepts.
+        // Attempt a CORS compliant POST first.  Many services (including n8n) now
+        // return proper Access‑Control headers for webhooks.  Use the default
+        // mode so the browser performs a preflight if necessary.
         try {
             const response = await fetch(webhookUrl, {
                 method: 'POST',
-                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -1620,8 +1581,51 @@ class GrindCTRLApp {
             console.error('CORS POST webhook attempt failed:', err);
         }
 
-        // If all methods fail, return false so the caller can handle
-        // notification and rollback.
+        // Fallback #1: sendBeacon – this avoids CORS preflight and is best effort
+        // for analytics‑type deliveries.  Some browsers silently drop the
+        // request if the protocol or host changes (e.g. http → https), so use
+        // this only after the CORS POST fails.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(webhookUrl, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('sendBeacon webhook attempt failed:', err);
+        }
+
+        // Fallback #2: POST using no‑cors.  Avoid custom headers so the
+        // browser skips the preflight.  The response will be opaque, but the
+        // request body will still be transmitted.  Some endpoints, especially
+        // simple webhook receivers, happily accept these requests.
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(orderData)
+            });
+            return true;
+        } catch (err) {
+            console.warn('no‑cors POST webhook attempt failed:', err);
+        }
+
+        // Fallback #3: GET via query string.  This uses the simplest mechanism
+        // (a URL fetch) which most CORS policies permit.  Encode the payload
+        // into the query string.  If the payload is too large, this may fail.
+        try {
+            const query = encodeURIComponent(JSON.stringify(orderData));
+            const img = new Image();
+            img.src = `${webhookUrl}?payload=${query}`;
+            // There is no reliable callback for image load in all browsers
+            // when cross‑origin.  Assume success once the src is set.
+            return true;
+        } catch (err) {
+            console.error('Webhook GET via image attempt failed:', err);
+        }
+
+        // If all strategies fail, return false so the caller can handle
+        // notification and rollback.  At this point the UI should show an error.
         return false;
     }
 

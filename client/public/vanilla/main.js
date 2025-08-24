@@ -1545,58 +1545,74 @@ class GrindCTRLApp {
 
     async sendOrderToWebhook(orderData) {
         const webhookUrl = window.CONFIG?.WEBHOOK_URL;
-        
-        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED') {
+        // If no webhook is set, simulate a delay and return success.  This prevents
+        // accidental calls to production webhooks during development.
+        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
             console.warn('Webhook URL not configured');
-            // For demo purposes, simulate success
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             return true;
         }
 
-        // First attempt: use a standard POST request.  If the server returns
-        // appropriate CORS headers, fetch will succeed and response.ok will
-        // indicate success.  Otherwise, fetch may throw or response.ok will
-        // be false.
+        // Strategy 1: CORS‑compliant POST.  This is the preferred method since
+        // n8n endpoints typically emit the appropriate Access‑Control headers.
         try {
             const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(orderData),
-                mode: 'cors'
+                body: JSON.stringify(orderData)
             });
             if (response.ok) {
                 return true;
             }
         } catch (error) {
-            // swallow error and attempt fallback
-            console.warn('Primary webhook POST failed:', error);
+            console.error('CORS POST webhook attempt failed:', error);
         }
 
-        // Fallback: use navigator.sendBeacon if available.  sendBeacon can
-        // transmit data to a cross-origin endpoint without CORS restrictions.
+        // Strategy 2: sendBeacon.  Avoids CORS preflights and is suited for
+        // analytics or fire‑and‑forget payloads.  Some browsers drop the
+        // request when the protocol or domain changes, so this is a fallback.
         try {
             if (navigator && typeof navigator.sendBeacon === 'function') {
                 const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
                 const result = navigator.sendBeacon(webhookUrl, blob);
-                return result;
+                if (result) {
+                    return true;
+                }
             }
         } catch (error) {
-            console.warn('Beacon webhook fallback failed:', error);
+            console.warn('sendBeacon webhook fallback failed:', error);
         }
-        // Final fallback: attempt a no-cors fetch without custom headers.
+
+        // Strategy 3: no‑cors POST.  The response is opaque but the body will be
+        // transmitted.  Do not set custom headers to avoid triggering a
+        // preflight.
         try {
             await fetch(webhookUrl, {
                 method: 'POST',
-                body: JSON.stringify(orderData),
-                mode: 'no-cors'
+                mode: 'no-cors',
+                body: JSON.stringify(orderData)
             });
             return true;
         } catch (error) {
-            console.error('Webhook error:', error);
-            return false;
+            console.warn('no‑cors POST webhook attempt failed:', error);
         }
+
+        // Strategy 4: GET via image.  Some services accept GET requests and
+        // query strings circumvent CORS entirely.  We assign the URL to a
+        // new Image object's src, which prompts the browser to perform a GET.
+        try {
+            const query = encodeURIComponent(JSON.stringify(orderData));
+            const img = new Image();
+            img.src = `${webhookUrl}?payload=${query}`;
+            return true;
+        } catch (error) {
+            console.error('Webhook GET via image attempt failed:', error);
+        }
+
+        // If all approaches fail, return false so callers can handle failure.
+        return false;
     }
 
     showOrderSuccess(orderData) {
