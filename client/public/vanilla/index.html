@@ -434,12 +434,14 @@
                 </button>
             </div>
             <div class="modal-body">
+                <!-- Phone-based return form: customers enter their phone number to lookup
+                     past orders, then choose the order they wish to return. -->
                 <form id="returnForm" class="return-exchange-form">
-                    <input type="text" name="name" placeholder="Your name" required>
-                    <input type="email" name="email" placeholder="Your email" required>
-                    <input type="text" name="orderId" placeholder="Order ID" required>
-                    <textarea name="message" placeholder="Reason for return" rows="3" required></textarea>
-                    <button type="submit" class="btn btn-primary">Submit Return Request</button>
+                    <input type="tel" id="returnPhone" placeholder="Your phone number" required>
+                    <button type="button" id="findReturnOrders" class="btn btn-secondary">Find Orders</button>
+                    <select id="returnOrderSelect" style="display: none;"></select>
+                    <textarea id="returnMessage" placeholder="Reason for return" rows="3" required></textarea>
+                    <button type="submit" id="returnSubmit" class="btn btn-primary" disabled>Submit Return Request</button>
                 </form>
             </div>
         </div>
@@ -456,11 +458,11 @@
             </div>
             <div class="modal-body">
                 <form id="exchangeForm" class="return-exchange-form">
-                    <input type="text" name="name" placeholder="Your name" required>
-                    <input type="email" name="email" placeholder="Your email" required>
-                    <input type="text" name="orderId" placeholder="Order ID" required>
-                    <textarea name="message" placeholder="Reason for exchange" rows="3" required></textarea>
-                    <button type="submit" class="btn btn-primary">Submit Exchange Request</button>
+                    <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
+                    <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
+                    <select id="exchangeOrderSelect" style="display: none;"></select>
+                    <textarea id="exchangeMessage" placeholder="Reason for exchange" rows="3" required></textarea>
+                    <button type="submit" id="exchangeSubmit" class="btn btn-primary" disabled>Submit Exchange Request</button>
                 </form>
             </div>
         </div>

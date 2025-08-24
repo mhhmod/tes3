@@ -655,8 +655,39 @@ class GrindCTRLApp {
                     this.scrollToSection(section);
                     this.setActiveNavLink(link);
                 }
+                // Close the mobile menu if it is open when navigating to a section
+                const nav = document.querySelector('.nav');
+                if (nav && nav.classList.contains('open')) {
+                    nav.classList.remove('open');
+                }
+                // Close any open Orders dropdown when clicking on a regular nav link
+                const openDropdown = document.querySelector('.nav-dropdown.open');
+                if (openDropdown && !link.closest('.nav-dropdown')) {
+                    openDropdown.classList.remove('open');
+                }
             });
         });
+
+        // Enable click‑to‑toggle behaviour for the Orders dropdown.  On
+        // touchscreen devices there is no hover event, so we toggle an
+        // `.open` class via JavaScript and hide the dropdown when clicking
+        // elsewhere on the page.
+        const ordersDropdown = document.querySelector('.nav-dropdown');
+        if (ordersDropdown) {
+            const ordersLink = ordersDropdown.querySelector('a.nav-link');
+            if (ordersLink) {
+                ordersLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    ordersDropdown.classList.toggle('open');
+                });
+            }
+            document.addEventListener('click', (e) => {
+                if (!ordersDropdown.contains(e.target)) {
+                    ordersDropdown.classList.remove('open');
+                }
+            });
+        }
 
         // Update active nav on scroll
         this.updateActiveNavOnScroll();
@@ -1515,6 +1546,8 @@ class GrindCTRLApp {
             const success = await this.sendOrderToWebhook(orderData);
 
             if (success) {
+                // Persist this order in localStorage so customers can look it up by phone
+                this.storeOrder(orderData);
                 this.showOrderSuccess(orderData);
                 this.state.clearCart();
                 this.closeModal('checkout');
@@ -1664,6 +1697,22 @@ class GrindCTRLApp {
 
     closeSuccessModal() {
         this.closeModal('success');
+    }
+
+    /**
+     * Persist a completed order to localStorage.  Orders are stored in a
+     * "grindctrl_orders" array so that customers can later look up their
+     * purchases by phone number when requesting returns or exchanges.
+     * @param {Object} orderData The order data returned by prepareOrderData().
+     */
+    storeOrder(orderData) {
+        try {
+            const orders = JSON.parse(localStorage.getItem('grindctrl_orders')) || [];
+            orders.push(orderData);
+            localStorage.setItem('grindctrl_orders', JSON.stringify(orders));
+        } catch (error) {
+            console.warn('Failed to save order:', error);
+        }
     }
 
     openSizeGuide() {
@@ -1884,23 +1933,116 @@ class GrindCTRLApp {
      * display a toast message and reset/close the modal.
      */
     initializeReturnExchangeForms() {
-        // Return form handling
+        /**
+         * Look up stored orders by phone number.
+         * @param {string} phone The phone number to search for.
+         * @returns {Array<Object>} A list of order objects matching the phone.
+         */
+        const getOrdersByPhone = (phone) => {
+            try {
+                const orders = JSON.parse(localStorage.getItem('grindctrl_orders')) || [];
+                return orders.filter(o => (o.Phone && o.Phone.replace(/[^\d]/g, '') === phone.replace(/[^\d]/g, '')));
+            } catch (error) {
+                console.warn('Failed to load orders for lookup:', error);
+                return [];
+            }
+        };
+
+        /**
+         * Populate a select element with orders and show/hide it.  Also sets
+         * the associated submit button enabled/disabled based on selection.
+         * @param {HTMLElement} orderSelect The <select> element to populate.
+         * @param {Array<Object>} orders The orders for the given phone.
+         * @param {HTMLElement} submitBtn The submit <button> element.
+         */
+        const populateOrderSelect = (orderSelect, orders, submitBtn) => {
+            orderSelect.innerHTML = '';
+            if (!orders || orders.length === 0) {
+                orderSelect.style.display = 'none';
+                submitBtn.disabled = true;
+                return;
+            }
+            // Add a placeholder option
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select your order';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            orderSelect.appendChild(placeholder);
+            orders.forEach(order => {
+                const opt = document.createElement('option');
+                opt.value = order['Order ID'];
+                // Build a short description: order ID and total
+                opt.textContent = `${order['Order ID']} – ${order.Total} ${order.Currency || ''}`;
+                orderSelect.appendChild(opt);
+            });
+            orderSelect.style.display = '';
+            submitBtn.disabled = true;
+        };
+
+        /**
+         * Attach lookup and change handlers for either return or exchange forms.
+         * @param {string} phoneId ID of the phone input.
+         * @param {string} buttonId ID of the "Find Orders" button.
+         * @param {string} selectId ID of the order select dropdown.
+         * @param {string} submitId ID of the submit button.
+         */
+        const attachLookupHandlers = (phoneId, buttonId, selectId, submitId) => {
+            const phoneInput = document.getElementById(phoneId);
+            const findBtn = document.getElementById(buttonId);
+            const orderSelect = document.getElementById(selectId);
+            const submitBtn = document.getElementById(submitId);
+            if (!phoneInput || !findBtn || !orderSelect || !submitBtn) return;
+
+            findBtn.addEventListener('click', () => {
+                const phone = phoneInput.value.trim();
+                if (!phone) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                const orders = getOrdersByPhone(phone);
+                if (orders.length === 0) {
+                    this.notifications.error('No orders found for this phone number.');
+                    populateOrderSelect(orderSelect, [], submitBtn);
+                    return;
+                }
+                populateOrderSelect(orderSelect, orders, submitBtn);
+            });
+            orderSelect.addEventListener('change', () => {
+                submitBtn.disabled = !orderSelect.value;
+            });
+        };
+
+        // Attach handlers for Return
+        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderSelect', 'returnSubmit');
+        // Attach handlers for Exchange
+        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderSelect', 'exchangeSubmit');
+
+        // Submit handlers for return and exchange forms
         const returnForm = document.getElementById('returnForm');
         if (returnForm) {
             returnForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.notifications.success('Return request submitted! Our support team will contact you soon.');
                 returnForm.reset();
+                // Hide order select and disable submit again
+                const select = document.getElementById('returnOrderSelect');
+                const submitBtn = document.getElementById('returnSubmit');
+                if (select) select.style.display = 'none';
+                if (submitBtn) submitBtn.disabled = true;
                 this.closeModal('return');
             });
         }
-        // Exchange form handling
         const exchangeForm = document.getElementById('exchangeForm');
         if (exchangeForm) {
             exchangeForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.notifications.success('Exchange request submitted! Our support team will contact you soon.');
                 exchangeForm.reset();
+                const select = document.getElementById('exchangeOrderSelect');
+                const submitBtn = document.getElementById('exchangeSubmit');
+                if (select) select.style.display = 'none';
+                if (submitBtn) submitBtn.disabled = true;
                 this.closeModal('exchange');
             });
         }

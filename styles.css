@@ -276,7 +276,10 @@ a {
 }
 
 /* Reveal dropdown on hover */
-.nav-dropdown:hover .dropdown-menu {
+/* Reveal dropdown on hover or when marked as open.  On mobile devices where hover
+   isn't available, we toggle the `open` class via JavaScript. */
+.nav-dropdown:hover .dropdown-menu,
+.nav-dropdown.open .dropdown-menu {
     display: flex;
 }
 
