@@ -1658,6 +1658,81 @@ class GrindCTRLApp {
         return false;
     }
 
+    /**
+     * Send a return or exchange request to the appropriate webhook.  Payloads
+     * include the customer's phone number, selected order id, reason and the
+     * full order details when available.  Uses the same resilient delivery
+     * strategy as sendOrderToWebhook: try a CORS POST, fall back to no‑cors,
+     * then sendBeacon and finally a GET via query string.
+     *
+     * @param {Object} requestData The request payload to send.
+     * @param {string} type Either 'return' or 'exchange' to select the endpoint.
+     * @returns {Promise<boolean>} True if any attempt succeeds, false otherwise.
+     */
+    async sendReturnOrExchangeWebhook(requestData, type) {
+        const returnUrl  = window.CONFIG?.RETURN_WEBHOOK_URL;
+        const exchangeUrl = window.CONFIG?.EXCHANGE_WEBHOOK_URL;
+        let url;
+        if (type === 'return') url = returnUrl;
+        else if (type === 'exchange') url = exchangeUrl;
+        else url = null;
+
+        if (!url || url === '' || url === 'WEBHOOK_URL_NOT_CONFIGURED') {
+            console.warn('Return/Exchange webhook URL not configured');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return true;
+        }
+
+        // Strategy 1: CORS POST with JSON
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify(requestData)
+            });
+            if (resp.ok) {
+                return true;
+            }
+        } catch (err) {
+            console.error('Return/Exchange CORS POST attempt failed:', err);
+        }
+
+        // Strategy 2: no‑cors POST without headers
+        try {
+            await fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(requestData)
+            });
+            return true;
+        } catch (err) {
+            console.warn('Return/Exchange no‑cors POST attempt failed:', err);
+        }
+
+        // Strategy 3: sendBeacon
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(requestData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(url, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('Return/Exchange sendBeacon attempt failed:', err);
+        }
+
+        // Strategy 4: GET via query string
+        try {
+            const query = encodeURIComponent(JSON.stringify(requestData));
+            const img = new Image();
+            img.src = `${url}?payload=${query}`;
+            return true;
+        } catch (err) {
+            console.error('Return/Exchange GET via image attempt failed:', err);
+        }
+        return false;
+    }
+
     showOrderSuccess(orderData) {
         const successModal = document.getElementById('successModal');
         const orderDetails = document.getElementById('orderDetails');
@@ -2016,27 +2091,79 @@ class GrindCTRLApp {
         // Submit handlers for return and exchange forms
         const returnForm = document.getElementById('returnForm');
         if (returnForm) {
-            returnForm.addEventListener('submit', (e) => {
+            returnForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                this.notifications.success('Return request submitted! Our support team will contact you soon.');
+                const phoneVal = document.getElementById('returnPhone')?.value.trim();
+                const reasonVal = document.getElementById('returnMessage')?.value.trim();
+                // Find the selected order from the radio list
+                const selectedRadio = document.querySelector('#returnOrderList input[type="radio"]:checked');
+                if (!phoneVal) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                if (!selectedRadio) {
+                    this.notifications.error('Please select an order to return.');
+                    return;
+                }
+                const orderId = selectedRadio.value;
+                // Look up the full order details by phone and id
+                const orders = getOrdersByPhone(phoneVal);
+                const orderObj = orders.find(o => o['Order ID'] === orderId) || null;
+                const payload = {
+                    phone: phoneVal,
+                    orderId: orderId,
+                    reason: reasonVal,
+                    order: orderObj
+                };
+                const success = await this.sendReturnOrExchangeWebhook(payload, 'return');
+                if (success) {
+                    this.notifications.success('Return request submitted! Our support team will contact you soon.');
+                } else {
+                    this.notifications.error('Failed to submit return request. Please try again.');
+                }
                 returnForm.reset();
-                // Hide order select and disable submit again
-                const select = document.getElementById('returnOrderSelect');
+                // Hide order list and disable submit again
+                const listEl = document.getElementById('returnOrderList');
                 const submitBtn = document.getElementById('returnSubmit');
-                if (select) select.style.display = 'none';
+                if (listEl) listEl.style.display = 'none';
                 if (submitBtn) submitBtn.disabled = true;
                 this.closeModal('return');
             });
         }
         const exchangeForm = document.getElementById('exchangeForm');
         if (exchangeForm) {
-            exchangeForm.addEventListener('submit', (e) => {
+            exchangeForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                this.notifications.success('Exchange request submitted! Our support team will contact you soon.');
+                const phoneVal = document.getElementById('exchangePhone')?.value.trim();
+                const reasonVal = document.getElementById('exchangeMessage')?.value.trim();
+                const selectedRadio = document.querySelector('#exchangeOrderList input[type="radio"]:checked');
+                if (!phoneVal) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                if (!selectedRadio) {
+                    this.notifications.error('Please select an order to exchange.');
+                    return;
+                }
+                const orderId = selectedRadio.value;
+                const orders = getOrdersByPhone(phoneVal);
+                const orderObj = orders.find(o => o['Order ID'] === orderId) || null;
+                const payload = {
+                    phone: phoneVal,
+                    orderId: orderId,
+                    reason: reasonVal,
+                    order: orderObj
+                };
+                const success = await this.sendReturnOrExchangeWebhook(payload, 'exchange');
+                if (success) {
+                    this.notifications.success('Exchange request submitted! Our support team will contact you soon.');
+                } else {
+                    this.notifications.error('Failed to submit exchange request. Please try again.');
+                }
                 exchangeForm.reset();
-                const select = document.getElementById('exchangeOrderSelect');
+                const listEl = document.getElementById('exchangeOrderList');
                 const submitBtn = document.getElementById('exchangeSubmit');
-                if (select) select.style.display = 'none';
+                if (listEl) listEl.style.display = 'none';
                 if (submitBtn) submitBtn.disabled = true;
                 this.closeModal('exchange');
             });

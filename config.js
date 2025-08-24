@@ -10,6 +10,14 @@ window.CONFIG = {
   // you can use a service like webhook.site.
   WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/test2git',
 
+  // When a customer submits a return request the payload will be sent to
+  // this endpoint.  Update this to point at your n8n return workflow.
+  RETURN_WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/returnxx',
+
+  // When a customer submits an exchange request the payload will be sent to
+  // this endpoint.  Update this to point at your n8n exchange workflow.
+  EXCHANGE_WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/exxx',
+
   // API endpoints for ancillary features.  These aren’t used in the
   // current static implementation but are here for future integration.
   API_ENDPOINTS: {
