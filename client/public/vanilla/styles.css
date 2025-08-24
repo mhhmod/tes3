@@ -249,6 +249,52 @@ a {
     transition: width var(--transition-fast);
 }
 
+/* ====================
+   Navigation Dropdown
+   ==================== */
+
+/* Container for the Orders dropdown in the header navigation */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* Hidden dropdown menu; becomes visible on hover */
+.nav-dropdown .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--background-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    display: none;
+    flex-direction: column;
+    min-width: 180px;
+    z-index: 10;
+    padding: var(--spacing-xs) 0;
+}
+
+/* Reveal dropdown on hover */
+.nav-dropdown:hover .dropdown-menu {
+    display: flex;
+}
+
+/* Links inside the dropdown */
+.nav-dropdown .dropdown-menu a {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+/* Hover effect for dropdown links */
+.nav-dropdown .dropdown-menu a:hover {
+    background: var(--background-surface);
+    color: var(--text-primary);
+}
+
 .nav-link:hover::after,
 .nav-link.active::after {
     width: 100%;

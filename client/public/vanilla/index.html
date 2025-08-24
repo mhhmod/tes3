@@ -66,6 +66,16 @@
                     <a href="#collection" class="nav-link" data-section="collection">Collection</a>
                     <a href="#about" class="nav-link" data-section="about">About</a>
                     <a href="#contact" class="nav-link" data-section="contact">Contact</a>
+                    <!-- Orders dropdown menu -->
+                    <div class="nav-dropdown">
+                        <a href="#" class="nav-link" onclick="return false;">
+                            Orders <i class="fas fa-chevron-down"></i>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a href="#" onclick="app.openReturnModal(); return false;">Return Order</a>
+                            <a href="#" onclick="app.openExchangeModal(); return false;">Exchange Order</a>
+                        </div>
+                    </div>
                     <div class="cart-icon" id="cartToggle">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count" id="cartCount">0</span>
@@ -253,9 +263,6 @@
                         <li><a href="#">Shipping Info</a></li>
                         <li><a href="#">Return Policy</a></li>
                         <li><a href="#">FAQ</a></li>
-                        <!-- Added direct actions for initiating a return or exchange -->
-                        <li><a href="#" onclick="app.openReturnModal()">Return Order</a></li>
-                        <li><a href="#" onclick="app.openExchangeModal()">Exchange Order</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
