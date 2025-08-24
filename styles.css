@@ -2590,3 +2590,5 @@ textarea:focus {
         display: none;
     }
 }
+/* Toast fade-out support */
+.toast.fade-out { opacity: 0; transition: opacity .25s ease; }

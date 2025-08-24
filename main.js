@@ -2094,3 +2094,39 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+
+/* Injected robust close handling */
+document.addEventListener('click', function(e){
+  const cartBtn     = e.target.closest && e.target.closest('.cart-close');
+  const wishlistBtn = e.target.closest && e.target.closest('.wishlist-close');
+  const modalBtn    = e.target.closest && e.target.closest('.modal-close');
+  const overlay     = (e.target.classList && e.target.classList.contains('modal-overlay')) ? e.target : null;
+
+  if (cartBtn)     { try { window.app && app.toggleCart(false); } catch(_){} return; }
+  if (wishlistBtn) { try { window.app && app.toggleWishlist(false); } catch(_){} return; }
+  if (modalBtn)    {
+    const m = modalBtn.closest('.modal');
+    if (m && m.id) { 
+      try { 
+        const id = m.id.replace('Modal','').replace(/Modal$/,'');
+        window.app && app.closeModal(id); 
+      } catch(_){} 
+    }
+    return;
+  }
+  if (overlay) {
+    const m = overlay.closest('.modal');
+    if (m && m.id) {
+      try { 
+        const id = m.id.replace('Modal','').replace(/Modal$/,'');
+        window.app && app.closeModal(id); 
+      } catch(_){} 
+    }
+  }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') {
+    try { window.app && app.closeAllModals && app.closeAllModals(); } catch(_){}
+  }
+});
+
