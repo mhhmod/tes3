@@ -1592,50 +1592,35 @@ class GrindCTRLApp {
 
     async sendOrderToWebhook(orderData) {
         const webhookUrl = window.CONFIG?.WEBHOOK_URL;
-        // If no webhook is defined, simulate a delay and return success.  This allows
-        // local testing without spamming external services.
+        // If no webhook is defined, simulate a delay and return success. This
+        // prevents accidental calls during local development.
         if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
             console.warn('Webhook URL not configured');
             await new Promise(resolve => setTimeout(resolve, 1500));
             return true;
         }
 
-        // Attempt a CORS compliant POST first.  Many services (including n8n) now
-        // return proper Access‑Control headers for webhooks.  Use the default
-        // mode so the browser performs a preflight if necessary.
+        // Strategy 1: CORS POST with JSON. Many modern webhooks (including n8n)
+        // set proper CORS headers. We explicitly set mode:'cors' so the browser
+        // attempts a preflight if necessary. If this succeeds we return early.
         try {
-            const response = await fetch(webhookUrl, {
+            const resp = await fetch(webhookUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
                 body: JSON.stringify(orderData)
             });
-            if (response.ok) {
+            if (resp.ok) {
                 return true;
             }
         } catch (err) {
             console.error('CORS POST webhook attempt failed:', err);
         }
 
-        // Fallback #1: sendBeacon – this avoids CORS preflight and is best effort
-        // for analytics‑type deliveries.  Some browsers silently drop the
-        // request if the protocol or host changes (e.g. http → https), so use
-        // this only after the CORS POST fails.
-        try {
-            if (navigator && typeof navigator.sendBeacon === 'function') {
-                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
-                const ok = navigator.sendBeacon(webhookUrl, blob);
-                if (ok) return true;
-            }
-        } catch (err) {
-            console.warn('sendBeacon webhook attempt failed:', err);
-        }
-
-        // Fallback #2: POST using no‑cors.  Avoid custom headers so the
-        // browser skips the preflight.  The response will be opaque, but the
-        // request body will still be transmitted.  Some endpoints, especially
-        // simple webhook receivers, happily accept these requests.
+        // Strategy 2: no‑cors POST without custom headers. Omitting headers avoids
+        // the preflight check and still delivers the body. The response is
+        // opaque but we assume success. This is useful when the endpoint does
+        // not set CORS headers.
         try {
             await fetch(webhookUrl, {
                 method: 'POST',
@@ -1647,22 +1632,29 @@ class GrindCTRLApp {
             console.warn('no‑cors POST webhook attempt failed:', err);
         }
 
-        // Fallback #3: GET via query string.  This uses the simplest mechanism
-        // (a URL fetch) which most CORS policies permit.  Encode the payload
-        // into the query string.  If the payload is too large, this may fail.
+        // Strategy 3: sendBeacon. This avoids CORS entirely and is best effort.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(webhookUrl, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('sendBeacon webhook fallback failed:', err);
+        }
+
+        // Strategy 4: GET via query string using an Image. This last resort
+        // constructs a GET URL with the entire payload encoded. Some services
+        // accept GET requests to their webhook endpoints. We assume success.
         try {
             const query = encodeURIComponent(JSON.stringify(orderData));
             const img = new Image();
             img.src = `${webhookUrl}?payload=${query}`;
-            // There is no reliable callback for image load in all browsers
-            // when cross‑origin.  Assume success once the src is set.
             return true;
         } catch (err) {
             console.error('Webhook GET via image attempt failed:', err);
         }
 
-        // If all strategies fail, return false so the caller can handle
-        // notification and rollback.  At this point the UI should show an error.
         return false;
     }
 

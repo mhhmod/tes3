@@ -1590,41 +1590,26 @@ class GrindCTRLApp {
             return true;
         }
 
-        // Strategy 1: CORS‑compliant POST.  This is the preferred method since
-        // n8n endpoints typically emit the appropriate Access‑Control headers.
+        // Primary attempt: CORS POST.  n8n and many webhook services support
+        // CORS.  We set mode:'cors' and include JSON headers so the browser
+        // will perform a preflight if needed.  If successful, return early.
         try {
-            const response = await fetch(webhookUrl, {
+            const resp = await fetch(webhookUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
                 body: JSON.stringify(orderData)
             });
-            if (response.ok) {
+            if (resp.ok) {
                 return true;
             }
-        } catch (error) {
-            console.error('CORS POST webhook attempt failed:', error);
+        } catch (err) {
+            console.error('CORS POST webhook attempt failed:', err);
         }
 
-        // Strategy 2: sendBeacon.  Avoids CORS preflights and is suited for
-        // analytics or fire‑and‑forget payloads.  Some browsers drop the
-        // request when the protocol or domain changes, so this is a fallback.
-        try {
-            if (navigator && typeof navigator.sendBeacon === 'function') {
-                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
-                const result = navigator.sendBeacon(webhookUrl, blob);
-                if (result) {
-                    return true;
-                }
-            }
-        } catch (error) {
-            console.warn('sendBeacon webhook fallback failed:', error);
-        }
-
-        // Strategy 3: no‑cors POST.  The response is opaque but the body will be
-        // transmitted.  Do not set custom headers to avoid triggering a
-        // preflight.
+        // Fallback: no‑cors POST without headers.  Omitting headers avoids
+        // triggering a preflight and still transmits the body.  We assume
+        // success because the response is opaque.
         try {
             await fetch(webhookUrl, {
                 method: 'POST',
@@ -1632,23 +1617,34 @@ class GrindCTRLApp {
                 body: JSON.stringify(orderData)
             });
             return true;
-        } catch (error) {
-            console.warn('no‑cors POST webhook attempt failed:', error);
+        } catch (err) {
+            console.warn('no‑cors POST webhook attempt failed:', err);
         }
 
-        // Strategy 4: GET via image.  Some services accept GET requests and
-        // query strings circumvent CORS entirely.  We assign the URL to a
-        // new Image object's src, which prompts the browser to perform a GET.
+        // Next fallback: sendBeacon.  This avoids CORS altogether and is best
+        // effort.  Some browsers drop these requests across protocol changes.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(webhookUrl, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('sendBeacon webhook fallback failed:', err);
+        }
+
+        // Final fallback: GET via query string assigned to an image.  This works
+        // with minimal CORS enforcement but may fail if the payload is too
+        // large.  We assume success once the src is assigned.
         try {
             const query = encodeURIComponent(JSON.stringify(orderData));
             const img = new Image();
             img.src = `${webhookUrl}?payload=${query}`;
             return true;
-        } catch (error) {
-            console.error('Webhook GET via image attempt failed:', error);
+        } catch (err) {
+            console.error('Webhook GET via image attempt failed:', err);
         }
 
-        // If all approaches fail, return false so callers can handle failure.
         return false;
     }
 
