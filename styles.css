@@ -363,6 +363,10 @@ a {
         padding: var(--spacing-xl);
         transition: right var(--transition-medium);
         border-left: 1px solid var(--border-color);
+        /* Ensure the mobile menu appears above other content and is scrollable
+           when the list of navigation links exceeds the viewport height. */
+        z-index: var(--z-fixed);
+        overflow-y: auto;
     }
     
     .nav.open {

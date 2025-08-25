@@ -358,6 +358,9 @@ class NotificationManager {
     constructor() {
         this.notifications = [];
         this.container = document.getElementById('notificationToast');
+        // Track the timeout for the current toast. When a new notification is shown
+        // any existing timeout is cleared to ensure predictable auto‑hide behaviour.
+        this.currentTimeout = null;
     }
 
     show(message, type = 'info', duration = 4000) {
@@ -370,11 +373,23 @@ class NotificationManager {
             duration
         };
 
+        // Add to stack and render the latest message. Because only one toast is visible at
+        // a time, we overwrite the existing content but retain a record of notifications.
         this.notifications.push(notification);
         this.render(notification);
 
-        setTimeout(() => {
+        // If a toast is already scheduled to hide, cancel it so that the duration is
+        // relative to the most recent notification.
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = null;
+        }
+
+        // Schedule hiding of this toast after the specified duration.  Store the timeout
+        // identifier so it can be cancelled if another toast appears before it fires.
+        this.currentTimeout = setTimeout(() => {
             this.hide(notification.id);
+            this.currentTimeout = null;
         }, duration);
     }
 
@@ -1673,13 +1688,18 @@ class GrindCTRLApp {
             return true;
         }
 
+        // Include the request type in the payload so the webhook can easily
+        // identify whether this is a return or an exchange.  We copy the
+        // requestData here to avoid mutating the original object.
+        const payload = { ...requestData, requestType: type };
+
         // Strategy 1: CORS POST with JSON
         try {
             const resp = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 mode: 'cors',
-                body: JSON.stringify(requestData)
+                body: JSON.stringify(payload)
             });
             if (resp.ok) {
                 return true;
@@ -1693,7 +1713,7 @@ class GrindCTRLApp {
             await fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
-                body: JSON.stringify(requestData)
+                body: JSON.stringify(payload)
             });
             return true;
         } catch (err) {
@@ -1703,7 +1723,7 @@ class GrindCTRLApp {
         // Strategy 3: sendBeacon
         try {
             if (navigator && typeof navigator.sendBeacon === 'function') {
-                const blob = new Blob([JSON.stringify(requestData)], { type: 'application/json' });
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
                 const ok = navigator.sendBeacon(url, blob);
                 if (ok) return true;
             }
@@ -1713,7 +1733,7 @@ class GrindCTRLApp {
 
         // Strategy 4: GET via query string
         try {
-            const query = encodeURIComponent(JSON.stringify(requestData));
+            const query = encodeURIComponent(JSON.stringify(payload));
             const img = new Image();
             img.src = `${url}?payload=${query}`;
             return true;

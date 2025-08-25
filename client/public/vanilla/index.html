@@ -217,14 +217,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="about-images">
-                        <div class="image-grid">
-                            <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=400" alt="Urban lifestyle" loading="lazy">
-                            <img src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=400" alt="Street style" loading="lazy">
-                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=400" alt="Modern fashion" loading="lazy">
-                            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=400" alt="Urban culture" loading="lazy">
-                        </div>
-                    </div>
+                    <!--
+                        Removed the static image grid from the about section.
+                        The original design included a set of lifestyle photos that added visual flair to the page,
+                        but they were unrelated to the products and cluttered the layout. Removing them keeps the
+                        page focused on your products and brand story without distracting photography.
+                    -->
                 </div>
             </div>
         </section>
@@ -485,6 +483,11 @@
 
     <!-- Main JavaScript -->
     <!-- Append version parameter to force cache busting after updates -->
-    <script src="main.js?v=2025-08-24c" defer></script>
+    <!--
+        Use a unique query string on the script URL to force browsers to fetch the latest version.
+        Without cache busting, some clients might continue to serve stale JavaScript even after an
+        update. Bump this version string whenever the contents of main.js change.
+    -->
+    <script src="main.js?v=2025-08-24d" defer></script>
 </body>
 </html>
