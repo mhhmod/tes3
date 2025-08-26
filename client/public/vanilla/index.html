@@ -412,15 +412,7 @@
                     <button class="btn btn-primary" onclick="closeSuccessModal()">
                         Continue Shopping
                     </button>
-                    <!-- Added order action buttons for exchanges and returns -->
-                    <div class="order-actions">
-                        <button class="btn btn-secondary" onclick="app.handleExchangeOrder()">
-                            Exchange Order
-                        </button>
-                        <button class="btn btn-secondary" onclick="app.handleReturnOrder()" style="margin-left: var(--spacing-sm);">
-                            Return Order
-                        </button>
-                    </div>
+                    <!-- Task 8: Removed order action buttons for exchanges and returns -->
                 </div>
             </div>
         </div>
@@ -444,7 +436,8 @@
                     <button type="button" id="findReturnOrders" class="btn btn-secondary">Find Orders</button>
                     <!-- Container that will list orders associated with the entered phone number.  Hidden until populated. -->
                     <div id="returnOrderList" class="order-list" style="display: none;"></div>
-                    <textarea id="returnMessage" placeholder="Reason for return" rows="3" required></textarea>
+                    <!-- Task 6: Make reason for return required -->
+                    <textarea id="returnMessage" placeholder="Reason for return *" rows="3" required></textarea>
                     <button type="submit" id="returnSubmit" class="btn btn-primary" disabled>Submit Return Request</button>
                 </form>
             </div>
@@ -463,10 +456,55 @@
             </div>
             <div class="modal-body">
                 <form id="exchangeForm" class="return-exchange-form">
-                    <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
-                    <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
-                    <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
-                    <textarea id="exchangeMessage" placeholder="Reason for exchange" rows="3" required></textarea>
+                    <!-- Step 1: Phone lookup -->
+                    <div class="exchange-step" id="exchangeStep1">
+                        <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
+                        <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
+                        <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
+                    </div>
+                    
+                    <!-- Step 2: Select old item (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep2" style="display: none;">
+                        <h4>Select item to exchange:</h4>
+                        <select id="exchangeOldItem" class="form-input" required>
+                            <option value="">Choose item from your order...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Step 3: Select new item (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep3" style="display: none;">
+                        <h4>Select new item:</h4>
+                        <select id="exchangeNewItem" class="form-input" required>
+                            <option value="">Choose new item...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Step 4: Price delta display (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep4" style="display: none;">
+                        <div class="price-delta-display">
+                            <h4>Exchange Summary:</h4>
+                            <div class="exchange-summary">
+                                <div class="exchange-item">
+                                    <span>Old Item:</span>
+                                    <span id="oldItemSummary">-</span>
+                                </div>
+                                <div class="exchange-item">
+                                    <span>New Item:</span>
+                                    <span id="newItemSummary">-</span>
+                                </div>
+                                <div class="exchange-item price-delta">
+                                    <span>Price Difference:</span>
+                                    <span id="priceDeltaDisplay">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comment field -->
+                    <div class="exchange-step" id="exchangeStep5" style="display: none;">
+                        <textarea id="exchangeMessage" placeholder="Additional comments (optional)" rows="3"></textarea>
+                    </div>
+                    
                     <button type="submit" id="exchangeSubmit" class="btn btn-primary" disabled>Submit Exchange Request</button>
                 </form>
             </div>
