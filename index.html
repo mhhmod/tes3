@@ -42,312 +42,6 @@
       ]
     }
     </script>
-
-    <style>
-        /* Mobile Navigation Enhancements */
-        .mobile-menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 10px;
-            color: var(--text-color, #333);
-        }
-
-        @media (max-width: 992px) {
-            .mobile-menu-toggle {
-                display: block !important;
-            }
-
-            .nav, .nav-links {
-                display: none;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: white;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                z-index: 1000;
-                flex-direction: column;
-            }
-
-            .nav.open, .nav-links.open {
-                display: flex;
-            }
-
-            .nav a, .nav-links a {
-                padding: 15px;
-                border-bottom: 1px solid #eee;
-                text-decoration: none;
-            }
-        }
-
-        /* Enhanced Toast Styles */
-        #notificationToast {
-            z-index: 10000;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            min-width: 300px;
-            max-width: 400px;
-        }
-
-        #notificationToast:hover {
-            cursor: pointer;
-        }
-
-        /* Form Enhancements */
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-family: inherit;
-            resize: vertical;
-        }
-
-        .char-counter {
-            text-align: right;
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .error-message {
-            color: red;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-
-        .price-delta {
-            padding: 10px;
-            border-radius: 4px;
-            background: #f5f5f5;
-            text-align: center;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-
-        @media (max-width: 768px) {
-            #notificationToast {
-                right: 10px;
-                left: 10px;
-                min-width: auto;
-            }
-        }
-
-        @media (max-width: 390px) {
-            input, select, textarea {
-                font-size: 16px; /* Prevent zoom on iOS */
-            }
-        }
-    </style>
-
-    <!-- Enhanced checkout/return/exchange functionality -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Task 5: Add note field to checkout
-        const checkoutModal = document.getElementById('checkoutModal');
-        if (checkoutModal) {
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList') {
-                        const shippingStep = checkoutModal.querySelector('[data-step="1"], .checkout-step');
-                        if (shippingStep && !shippingStep.querySelector('#orderNote')) {
-                            const noteContainer = document.createElement('div');
-                            noteContainer.className = 'form-group';
-                            noteContainer.innerHTML = `
-                                <label for="orderNote">Note (optional)</label>
-                                <textarea id="orderNote" name="note" maxlength="500" 
-                                    placeholder="Special delivery instructions or comments..."></textarea>
-                                <div class="char-counter">
-                                    <span id="noteCounter">0</span>/500 characters
-                                </div>
-                            `;
-
-                            const nextButton = shippingStep.querySelector('button[type="submit"], .btn-next, .checkout-btn');
-                            if (nextButton) {
-                                nextButton.parentNode.insertBefore(noteContainer, nextButton);
-
-                                const textarea = noteContainer.querySelector('#orderNote');
-                                const counter = noteContainer.querySelector('#noteCounter');
-                                textarea.addEventListener('input', () => {
-                                    counter.textContent = textarea.value.length;
-                                });
-                            }
-                        }
-
-                        // Ensure email field is required
-                        const emailField = checkoutModal.querySelector('input[type="email"], input[name="email"]');
-                        if (emailField && !emailField.hasAttribute('required')) {
-                            emailField.setAttribute('required', 'true');
-                        }
-                    }
-                });
-            });
-
-            observer.observe(checkoutModal, { childList: true, subtree: true });
-        }
-
-        // Task 6: Enhanced return flow
-        const returnModal = document.getElementById('returnModal');
-        if (returnModal) {
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList') {
-                        const returnForm = returnModal.querySelector('#returnForm, form');
-                        if (returnForm && !returnForm.querySelector('#returnReason')) {
-                            const reasonContainer = document.createElement('div');
-                            reasonContainer.className = 'form-group';
-                            reasonContainer.innerHTML = `
-                                <label for="returnReason">Reason for return *</label>
-                                <textarea id="returnReason" name="reason" required 
-                                    placeholder="Please explain why you are returning this item..."></textarea>
-                                <div class="error-message" id="returnReasonError" style="display:none;">
-                                    Reason for return is required
-                                </div>
-                            `;
-
-                            const submitButton = returnForm.querySelector('button[type="submit"], #returnSubmit');
-                            if (submitButton) {
-                                submitButton.parentNode.insertBefore(reasonContainer, submitButton);
-                            }
-                        }
-                    }
-                });
-            });
-
-            observer.observe(returnModal, { childList: true, subtree: true });
-        }
-
-        // Task 7: Enhanced exchange flow
-        const exchangeModal = document.getElementById('exchangeModal');
-        if (exchangeModal) {
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList') {
-                        const exchangeForm = exchangeModal.querySelector('#exchangeForm, form');
-                        if (exchangeForm && !exchangeForm.querySelector('#exchangeSteps')) {
-                            const exchangeContainer = document.createElement('div');
-                            exchangeContainer.id = 'exchangeSteps';
-                            exchangeContainer.innerHTML = `
-                                <div class="form-group">
-                                    <label for="oldItemSelect">Select item to exchange</label>
-                                    <select id="oldItemSelect" required>
-                                        <option value="">Choose item to return...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="newItemSelect">Select new item</label>
-                                    <select id="newItemSelect" required>
-                                        <option value="">Choose replacement item...</option>
-                                    </select>
-                                </div>
-                                <div class="price-delta" id="priceDelta">
-                                    Price difference: Select both items
-                                </div>
-                                <div class="form-group">
-                                    <label for="exchangeComment">Comment (optional)</label>
-                                    <textarea id="exchangeComment" placeholder="Any additional comments..."></textarea>
-                                </div>
-                            `;
-
-                            const submitButton = exchangeForm.querySelector('button[type="submit"], #exchangeSubmit');
-                            if (submitButton) {
-                                submitButton.parentNode.insertBefore(exchangeContainer, submitButton);
-
-                                // Populate dropdowns - using sample data if app.products not available
-                                const sampleProducts = [
-                                    {sku: 'SKU001', name: 'Luxury Cropped Black T-Shirt', price: '300.00'},
-                                    {sku: 'SKU002', name: 'Oversized Essential Hoodie', price: '650.00'},
-                                    {sku: 'SKU003', name: 'Minimal Logo Cap', price: '250.00'},
-                                    {sku: 'SKU004', name: 'Vintage Distressed Jeans', price: '800.00'},
-                                    {sku: 'SKU005', name: 'Premium Leather Sneakers', price: '1200.00'}
-                                ];
-
-                                const oldSelect = exchangeContainer.querySelector('#oldItemSelect');
-                                const newSelect = exchangeContainer.querySelector('#newItemSelect');
-                                const deltaDiv = exchangeContainer.querySelector('#priceDelta');
-
-                                sampleProducts.forEach(product => {
-                                    const oldOption = new Option(`${product.sku} - ${product.name} - ${product.price} EGP`, 
-                                        JSON.stringify(product));
-                                    const newOption = new Option(`${product.sku} - ${product.name} - ${product.price} EGP`, 
-                                        JSON.stringify(product));
-
-                                    oldSelect.appendChild(oldOption);
-                                    newSelect.appendChild(newOption.cloneNode(true));
-                                });
-
-                                const updateDelta = () => {
-                                    if (oldSelect.value && newSelect.value) {
-                                        const oldItem = JSON.parse(oldSelect.value);
-                                        const newItem = JSON.parse(newSelect.value);
-                                        const delta = parseFloat(newItem.price) - parseFloat(oldItem.price);
-
-                                        if (delta > 0) {
-                                            deltaDiv.textContent = `You pay +${delta.toFixed(2)} EGP`;
-                                            deltaDiv.style.color = 'red';
-                                        } else if (delta < 0) {
-                                            deltaDiv.textContent = `Refund ${Math.abs(delta).toFixed(2)} EGP`;
-                                            deltaDiv.style.color = 'green';
-                                        } else {
-                                            deltaDiv.textContent = 'No price difference';
-                                            deltaDiv.style.color = 'blue';
-                                        }
-                                    }
-                                };
-
-                                oldSelect.addEventListener('change', updateDelta);
-                                newSelect.addEventListener('change', updateDelta);
-                            }
-                        }
-                    }
-                });
-            });
-
-            observer.observe(exchangeModal, { childList: true, subtree: true });
-        }
-
-        // Task 2: Remove faces strip if present
-        setTimeout(() => {
-            const selectors = [
-                '#faces-strip', '.faces-strip', '.people-faces', 
-                '.testimonials-strip', '.avatar-strip', '.footer-faces'
-            ];
-
-            selectors.forEach(selector => {
-                const element = document.querySelector(selector);
-                if (element) {
-                    console.log('Removing faces strip:', selector);
-                    element.remove();
-                }
-            });
-
-            // Check for footer with 6+ images
-            const footerImages = document.querySelectorAll('footer img, .footer img');
-            if (footerImages.length >= 6) {
-                const parent = footerImages[0]?.closest('.footer, footer, [class*="footer"]');
-                if (parent) {
-                    console.log('Removing footer faces strip');
-                    parent.remove();
-                }
-            }
-        }, 1000);
-    });
-    </script>
-
 </head>
 <body>
     <!-- Loading Screen -->
@@ -441,7 +135,9 @@
                     <div class="hero-image">
                         <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=800" 
                              alt="Premium streetwear collection" 
-                             loading="lazy">
+                             loading="eager"
+                             width="800"
+                             height="800">
                         <div class="floating-card floating-card-1">
                             <i class="fas fa-shipping-fast"></i>
                             <span>Free Worldwide Shipping</span>
@@ -716,15 +412,7 @@
                     <button class="btn btn-primary" onclick="closeSuccessModal()">
                         Continue Shopping
                     </button>
-                    <!-- Added order action buttons for exchanges and returns -->
-                    <div class="order-actions">
-                        <button class="btn btn-secondary" onclick="app.handleExchangeOrder()">
-                            Exchange Order
-                        </button>
-                        <button class="btn btn-secondary" onclick="app.handleReturnOrder()" style="margin-left: var(--spacing-sm);">
-                            Return Order
-                        </button>
-                    </div>
+                    <!-- Task 8: Removed order action buttons for exchanges and returns -->
                 </div>
             </div>
         </div>
@@ -741,16 +429,15 @@
                 </button>
             </div>
             <div class="modal-body">
-                <!-- The return form now begins with a phone number lookup.  Customers enter
-                     their phone number, then click "Find Orders" to populate the order
-                     selector with any orders associated with that number.  Once an
-                     order is selected the submit button becomes enabled. -->
+                <!-- Phone-based return form: customers enter their phone number to lookup
+                     past orders, then choose the order they wish to return. -->
                 <form id="returnForm" class="return-exchange-form">
                     <input type="tel" id="returnPhone" placeholder="Your phone number" required>
                     <button type="button" id="findReturnOrders" class="btn btn-secondary">Find Orders</button>
                     <!-- Container that will list orders associated with the entered phone number.  Hidden until populated. -->
                     <div id="returnOrderList" class="order-list" style="display: none;"></div>
-                    <textarea id="returnMessage" placeholder="Reason for return" rows="3" required></textarea>
+                    <!-- Task 6: Make reason for return required -->
+                    <textarea id="returnMessage" placeholder="Reason for return *" rows="3" required></textarea>
                     <button type="submit" id="returnSubmit" class="btn btn-primary" disabled>Submit Return Request</button>
                 </form>
             </div>
@@ -769,10 +456,55 @@
             </div>
             <div class="modal-body">
                 <form id="exchangeForm" class="return-exchange-form">
-                    <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
-                    <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
-                    <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
-                    <textarea id="exchangeMessage" placeholder="Reason for exchange" rows="3" required></textarea>
+                    <!-- Step 1: Phone lookup -->
+                    <div class="exchange-step" id="exchangeStep1">
+                        <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
+                        <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
+                        <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
+                    </div>
+                    
+                    <!-- Step 2: Select old item (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep2" style="display: none;">
+                        <h4>Select item to exchange:</h4>
+                        <select id="exchangeOldItem" class="form-input" required>
+                            <option value="">Choose item from your order...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Step 3: Select new item (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep3" style="display: none;">
+                        <h4>Select new item:</h4>
+                        <select id="exchangeNewItem" class="form-input" required>
+                            <option value="">Choose new item...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Step 4: Price delta display (Task 7) -->
+                    <div class="exchange-step" id="exchangeStep4" style="display: none;">
+                        <div class="price-delta-display">
+                            <h4>Exchange Summary:</h4>
+                            <div class="exchange-summary">
+                                <div class="exchange-item">
+                                    <span>Old Item:</span>
+                                    <span id="oldItemSummary">-</span>
+                                </div>
+                                <div class="exchange-item">
+                                    <span>New Item:</span>
+                                    <span id="newItemSummary">-</span>
+                                </div>
+                                <div class="exchange-item price-delta">
+                                    <span>Price Difference:</span>
+                                    <span id="priceDeltaDisplay">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comment field -->
+                    <div class="exchange-step" id="exchangeStep5" style="display: none;">
+                        <textarea id="exchangeMessage" placeholder="Additional comments (optional)" rows="3"></textarea>
+                    </div>
+                    
                     <button type="submit" id="exchangeSubmit" class="btn btn-primary" disabled>Submit Exchange Request</button>
                 </form>
             </div>
@@ -785,8 +517,8 @@
     </button>
 
     <!-- Configuration -->
-    <!-- Load configuration before main script so settings are available globally -->
     <script src="config.js"></script>
+
     <!-- Main JavaScript -->
     <!-- Append version parameter to force cache busting after updates -->
     <!--
@@ -794,8 +526,6 @@
         Without cache busting, some clients might continue to serve stale JavaScript even after an
         update. Bump this version string whenever the contents of main.js change.
     -->
-    <script src="main.js?v=2025-08-24d"></script>
-    <!-- GrindCTRL Enhancement Patch -->
-    <script src="monkey-patch.js"></script>
+    <script src="main.js?v=2025-08-24d" defer></script>
 </body>
 </html>

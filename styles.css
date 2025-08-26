@@ -276,10 +276,7 @@ a {
 }
 
 /* Reveal dropdown on hover */
-/* Reveal dropdown on hover or when marked as open.  On mobile devices where hover
-   isn't available, we toggle the `open` class via JavaScript. */
-.nav-dropdown:hover .dropdown-menu,
-.nav-dropdown.open .dropdown-menu {
+.nav-dropdown:hover .dropdown-menu {
     display: flex;
 }
 
@@ -2598,253 +2595,174 @@ textarea:focus {
 .toast.fade-out { opacity: 0; transition: opacity .25s ease; }
 
 
-/* GrindCTRL Enhancement Styles */
+/* ===== TASK ENHANCEMENTS ===== */
 
-/* Task 3: Toast enhancements */
-#notificationToast {
-    z-index: 10000;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    min-width: 300px;
-    max-width: 400px;
-}
-
-#notificationToast:hover {
-    cursor: pointer;
-}
-
-/* Task 4: Mobile navigation */
-#mobileMenuToggle {
-    display: none;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 10px;
-    color: inherit;
-}
-
-@media (max-width: 992px) {
-    #mobileMenuToggle {
-        display: block !important;
-    }
-
-    .nav {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        z-index: 1000;
-    }
-
-    .nav.open {
-        display: block;
-    }
-
-    .nav-link {
-        display: block;
-        padding: 15px;
-        border-bottom: 1px solid #eee;
-    }
-}
-
-/* Task 5: Checkout note field */
-#orderNote {
-    width: 100%;
-    min-height: 80px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    resize: vertical;
-}
-
-.char-counter {
+/* Task 5: Character counter styles */
+.character-counter {
+    font-size: 0.875rem;
+    color: var(--text-muted);
     text-align: right;
-    font-size: 0.9em;
-    color: #666;
-    margin-top: 5px;
+    margin-top: 0.25rem;
 }
 
-/* Task 6: Return reason field */
-#returnReason {
-    width: 100%;
-    min-height: 100px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    resize: vertical;
+/* Task 7: Exchange form step styles */
+.exchange-step {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
 }
 
-.error-message {
-    margin-top: 5px;
-    font-size: 0.9em;
+.exchange-step h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
 }
 
-/* Task 7: Exchange flow */
-#exchangeSteps select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
+.exchange-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
-.price-delta {
-    padding: 10px;
-    border-radius: 4px;
-    background: #f5f5f5;
-    text-align: center;
-    font-weight: bold;
+.exchange-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
 }
 
-#exchangeComment {
-    width: 100%;
-    min-height: 60px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    resize: vertical;
+.exchange-item:last-child {
+    border-bottom: none;
 }
 
-/* Responsive improvements */
-@media (max-width: 768px) {
-    #notificationToast {
-        right: 10px;
-        left: 10px;
-        min-width: auto;
-    }
+.exchange-item.price-delta {
+    font-weight: 600;
+    font-size: 1.1rem;
 }
 
-@media (max-width: 390px) {
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    input, select, textarea {
-        font-size: 16px; /* Prevent zoom on iOS */
-    }
+.price-delta-display {
+    background: var(--bg-primary);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
 
-
-/* GrindCTRL Enhancement Styles */
-
-/* Mobile Navigation */
-.mobile-menu-toggle {
-    display: none;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 10px;
-    color: var(--text-color, #333);
-}
-
+/* Task 4: Mobile menu enhancements */
 @media (max-width: 992px) {
     .mobile-menu-toggle {
         display: block !important;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
     }
-
-    .nav, .nav-links {
-        display: none;
-        position: absolute;
+    
+    .mobile-menu-toggle:hover {
+        background-color: var(--bg-secondary);
+    }
+    
+    .nav {
+        position: fixed;
         top: 100%;
         left: 0;
         right: 0;
-        background: white;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+        transform: translateY(0);
+        transition: transform 0.3s ease;
         z-index: 1000;
-        flex-direction: column;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
     }
-
-    .nav.open, .nav-links.open {
-        display: flex;
+    
+    .nav.open {
+        transform: translateY(-100%);
     }
-
-    .nav a, .nav-links a {
-        padding: 15px;
-        border-bottom: 1px solid #eee;
+    
+    .nav-link {
+        display: block;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
         text-decoration: none;
+        color: var(--text-primary);
+        transition: background-color 0.2s ease;
+    }
+    
+    .nav-link:hover,
+    .nav-link:focus {
+        background-color: var(--bg-secondary);
+    }
+    
+    .nav-dropdown .dropdown-menu {
+        position: static;
+        display: block;
+        background: var(--bg-secondary);
+        box-shadow: none;
+        border: none;
+        margin-left: 1rem;
+    }
+    
+    .nav-dropdown.open .dropdown-menu {
+        display: block;
     }
 }
 
-/* Enhanced Toast Notifications */
-#notificationToast {
+/* Task 3: Toast hover states */
+.notification-toast:hover {
+    transform: translateX(-50%) scale(1.02);
+}
+
+.notification-toast.show {
+    animation: slideInToast 0.3s ease-out;
+}
+
+@keyframes slideInToast {
+    from {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Ensure toast has proper z-index to avoid mobile menu overlap */
+.notification-toast {
     z-index: 10000;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    min-width: 300px;
-    max-width: 400px;
 }
 
-#notificationToast:hover {
-    cursor: pointer;
+/* Form validation error styles */
+.form-input.error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
-/* Form Enhancements */
-.form-group {
-    margin-bottom: 15px;
+.form-error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
 }
 
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.form-group textarea, .form-group select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    resize: vertical;
-}
-
-.char-counter {
-    text-align: right;
-    font-size: 0.9em;
-    color: #666;
-    margin-top: 5px;
-}
-
-.error-message {
-    color: red;
-    font-size: 0.9em;
-    margin-top: 5px;
-}
-
-.price-delta {
-    padding: 10px;
-    border-radius: 4px;
-    background: #f5f5f5;
-    text-align: center;
-    font-weight: bold;
-    margin: 10px 0;
-}
-
-/* Responsive improvements */
+/* Responsive improvements for exchange form */
 @media (max-width: 768px) {
-    #notificationToast {
-        right: 10px;
-        left: 10px;
-        min-width: auto;
+    .exchange-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .exchange-step {
+        padding: 0.75rem;
     }
 }
 
-@media (max-width: 390px) {
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    input, select, textarea {
-        font-size: 16px; /* Prevent zoom on iOS */
-    }
-}
