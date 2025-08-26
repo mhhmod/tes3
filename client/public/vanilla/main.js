@@ -481,6 +481,7 @@ class ScrollAnimations {
     }
 
     init() {
+        if (this._initOnce) return; this._initOnce = true;
         // Add animation classes to elements
         const animateElements = document.querySelectorAll('.product-card, .feature, .about-text, .hero-stats .stat');
         
@@ -508,7 +509,7 @@ class GrindCTRLApp {
             this.loading.show('init');
             
             // Load product data
-            await this.loadProducts();
+            await this.safeRenderProducts();
             
             // Initialize UI components
             this.initializeEventListeners();
@@ -541,16 +542,37 @@ class GrindCTRLApp {
 }
     }
 
-    async loadProducts() {
-        try {
-            const response = await fetch('./products.json');
-            if (!response.ok) throw new Error('Failed to fetch products');
-            
-            const data = await response.json();
-            this.state.products = data.products;
-            this.state.categories = data.categories;
-            
-        } catch (error) {
+    async loadProducts(force=false) {
+    try {
+        if (!force && this._productsCache) return this._productsCache;
+        if (this._productsLoading && !force) return this._productsLoading;
+        const url = this.getBaseUrlForAssets() + 'products.json';
+        this._productsLoading = fetch(url, {cache: 'no-store'})
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP '+r.status);
+                return r.json();
+            })
+            .then(list => {
+                if (!Array.isArray(list)) list = [];
+                // basic schema cleanup
+                list = list.filter(p => p && p.image);
+                this._productsCache = list;
+                this._productsLoading = null;
+                return list;
+            })
+            .catch(err => {
+                console.error('products fetch failed:', err);
+                this._productsCache = [];
+                this._productsLoading = null;
+                return [];
+            });
+        return await this._productsLoading;
+    } catch (e) {
+        console.error('loadProducts fatal:', e);
+        this._productsCache = [];
+        return [];
+    }
+} catch (error) {
             console.error('Error loading products:', error);
             // Fallback to embedded data
             this.loadFallbackData();

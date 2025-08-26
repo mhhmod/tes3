@@ -481,6 +481,7 @@ class ScrollAnimations {
     }
 
     init() {
+        if (this._initOnce) return; this._initOnce = true;
         // Add animation classes to elements
         const animateElements = document.querySelectorAll('.product-card, .feature, .about-text, .hero-stats .stat');
         
@@ -516,7 +517,7 @@ class GrindCTRLApp {
             // Load product data.  If this fails, loadProducts() will fall
             // back to embedded data.  Any error thrown beyond that will be
             // caught below.
-            await this.loadProducts();
+            await this.safeRenderProducts();
 
             // Initialize UI components
             this.initializeEventListeners();
