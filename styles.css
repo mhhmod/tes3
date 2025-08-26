@@ -2596,3 +2596,138 @@ textarea:focus {
 }
 /* Toast fade-out support */
 .toast.fade-out { opacity: 0; transition: opacity .25s ease; }
+
+
+/* GrindCTRL Enhancement Styles */
+
+/* Task 3: Toast enhancements */
+#notificationToast {
+    z-index: 10000;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+#notificationToast:hover {
+    cursor: pointer;
+}
+
+/* Task 4: Mobile navigation */
+#mobileMenuToggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 10px;
+    color: inherit;
+}
+
+@media (max-width: 992px) {
+    #mobileMenuToggle {
+        display: block !important;
+    }
+
+    .nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .nav.open {
+        display: block;
+    }
+
+    .nav-link {
+        display: block;
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+    }
+}
+
+/* Task 5: Checkout note field */
+#orderNote {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* Task 6: Return reason field */
+#returnReason {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.error-message {
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+/* Task 7: Exchange flow */
+#exchangeSteps select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.price-delta {
+    padding: 10px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    text-align: center;
+    font-weight: bold;
+}
+
+#exchangeComment {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    #notificationToast {
+        right: 10px;
+        left: 10px;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 390px) {
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    input, select, textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
