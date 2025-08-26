@@ -2235,3 +2235,63 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+
+
+/* ULTRA_BOOTSTRAP: guaranteed product rendering */
+(function(){
+  let booted = false;
+  function qs(s){ return document.querySelector(s); }
+  function ensureContainers(){
+    const coll = document.querySelector('#collection .container') ||
+                 document.querySelector('#collection') ||
+                 document.body;
+    let loader = qs('#productsLoading') || qs('.products-loading');
+    if(!loader){
+      loader = document.createElement('div');
+      loader.id = 'productsLoading';
+      loader.className = 'products-loading';
+      loader.textContent = 'Loading...';
+      coll.appendChild(loader);
+    }
+    let grid = qs('#productGrid') || qs('.product-grid') || qs('.products-grid');
+    if(!grid){
+      grid = document.createElement('div');
+      grid.id = 'productGrid';
+      grid.className = 'product-grid';
+      coll.appendChild(grid);
+    }
+    return {loader, grid};
+  }
+  async function loadProducts(){
+    try{
+      const resp = await fetch('./products.json', {cache: 'no-store'});
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const arr = await resp.json();
+      return Array.isArray(arr) ? arr.filter(p => p && p.image) : [];
+    }catch(e){
+      console.error('loadProducts error', e);
+      return [];
+    }
+  }
+  function render(items, ctx){
+    if(ctx.loader) ctx.loader.style.display = 'none';
+    ctx.grid.innerHTML = (items.map(p => `
+      <article class="product-card">
+        <img src="${p.image}" alt="${p.name}">
+        <h3>${p.name}</h3>
+        <p>${p.price}</p>
+        <button class="btn btn-primary" data-add="${p.name}">Add to cart</button>
+      </article>
+    `).join('')) || '<div class="empty">No products available.</div>';
+  }
+  async function boot(){
+    if(booted) return; booted = true;
+    const ctx = ensureContainers();
+    const items = await loadProducts();
+    render(items, ctx);
+  }
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', boot)
+    : boot();
+})();
+
