@@ -18,7 +18,7 @@ window.CONFIG = {
   // this endpoint.  Update this to point at your n8n exchange workflow.
   EXCHANGE_WEBHOOK_URL: 'https://grindctrlface.app.n8n.cloud/webhook/exxx',
 
-  // API endpoints for ancillary features.  These aren’t used in the
+  // API endpoints for ancillary features.  These aren't used in the
   // current static implementation but are here for future integration.
   API_ENDPOINTS: {
     NEWSLETTER: '/api/newsletter',
