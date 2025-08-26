@@ -2731,3 +2731,120 @@ textarea:focus {
         font-size: 16px; /* Prevent zoom on iOS */
     }
 }
+
+
+/* GrindCTRL Enhancement Styles */
+
+/* Mobile Navigation */
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 10px;
+    color: var(--text-color, #333);
+}
+
+@media (max-width: 992px) {
+    .mobile-menu-toggle {
+        display: block !important;
+    }
+
+    .nav, .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        flex-direction: column;
+    }
+
+    .nav.open, .nav-links.open {
+        display: flex;
+    }
+
+    .nav a, .nav-links a {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        text-decoration: none;
+    }
+}
+
+/* Enhanced Toast Notifications */
+#notificationToast {
+    z-index: 10000;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+#notificationToast:hover {
+    cursor: pointer;
+}
+
+/* Form Enhancements */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group textarea, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}
+
+.error-message {
+    color: red;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.price-delta {
+    padding: 10px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    text-align: center;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    #notificationToast {
+        right: 10px;
+        left: 10px;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 390px) {
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    input, select, textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}

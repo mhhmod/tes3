@@ -354,54 +354,106 @@ class Utils {
 }
 
 // ===== NOTIFICATION SYSTEM =====
+
 class NotificationManager {
     constructor() {
         this.notifications = [];
         this.container = document.getElementById('notificationToast');
-        // Track the timeout for the current toast. When a new notification is shown
-        // any existing timeout is cleared to ensure predictable auto‑hide behaviour.
         this.currentTimeout = null;
+        this.watchdogTimeout = null;
+        this.remainingTime = 3500;
+        this.isPaused = false;
+        this.startTime = 0;
     }
 
-    show(message, type = 'info', duration = 4000) {
+    show(message, type = 'info', duration = 3500) {
         if (!this.container) return;
 
-        const notification = {
-            id: Date.now(),
-            message,
-            type,
-            duration
+        // Clear existing timeouts
+        if (this.currentTimeout) clearTimeout(this.currentTimeout);
+        if (this.watchdogTimeout) clearTimeout(this.watchdogTimeout);
+
+        this.render(message, type);
+        this.container.style.display = 'block';
+
+        this.remainingTime = duration;
+        this.isPaused = false;
+        this.startTime = Date.now();
+
+        // Setup hover pause/resume
+        const pauseTimer = () => {
+            if (!this.isPaused) {
+                this.isPaused = true;
+                this.remainingTime -= Date.now() - this.startTime;
+                if (this.currentTimeout) clearTimeout(this.currentTimeout);
+                console.log('Toast paused, remaining:', this.remainingTime);
+            }
         };
 
-        // Add to stack and render the latest message. Because only one toast is visible at
-        // a time, we overwrite the existing content but retain a record of notifications.
-        this.notifications.push(notification);
-        this.render(notification);
+        const resumeTimer = () => {
+            if (this.isPaused) {
+                this.isPaused = false;
+                this.startTime = Date.now();
+                this.scheduleHide();
+                console.log('Toast resumed');
+            }
+        };
 
-        // If a toast is already scheduled to hide, cancel it so that the duration is
-        // relative to the most recent notification.
-        if (this.currentTimeout) {
-            clearTimeout(this.currentTimeout);
-            this.currentTimeout = null;
-        }
+        // Remove old listeners
+        this.container.removeEventListener('mouseenter', this.pauseHandler);
+        this.container.removeEventListener('mouseleave', this.resumeHandler);
+        this.container.removeEventListener('focusin', this.pauseHandler);
+        this.container.removeEventListener('focusout', this.resumeHandler);
 
-        // Schedule hiding of this toast after the specified duration.  Store the timeout
-        // identifier so it can be cancelled if another toast appears before it fires.
-        this.currentTimeout = setTimeout(() => {
-            this.hide(notification.id);
-            this.currentTimeout = null;
-        }, duration);
+        // Add new listeners
+        this.pauseHandler = pauseTimer;
+        this.resumeHandler = resumeTimer;
+        this.container.addEventListener('mouseenter', this.pauseHandler);
+        this.container.addEventListener('mouseleave', this.resumeHandler);
+        this.container.addEventListener('focusin', this.pauseHandler);
+        this.container.addEventListener('focusout', this.resumeHandler);
+
+        // Watchdog timer - force close after 8000ms
+        this.watchdogTimeout = setTimeout(() => {
+            console.log('Watchdog timeout - force closing toast');
+            this.container.style.display = 'none';
+            if (this.currentTimeout) clearTimeout(this.currentTimeout);
+        }, 8000);
+
+        this.scheduleHide();
     }
 
-    render(notification) {
-        const iconMap = {
-            success: 'fas fa-check-circle',
-            error: 'fas fa-exclamation-circle',
-            info: 'fas fa-info-circle',
-            warning: 'fas fa-exclamation-triangle'
-        };
+    scheduleHide() {
+        this.currentTimeout = setTimeout(() => {
+            if (!this.isPaused) {
+                this.container.style.display = 'none';
+            }
+        }, this.remainingTime);
+    }
 
-        this.container.querySelector('.toast-icon').className = `toast-icon ${notification.type} ${iconMap[notification.type]}`;
+    render(message, type) {
+        this.container.innerHTML = `
+            <div class="toast toast-${type}">
+                <i class="toast-icon fas ${this.getIcon(type)}"></i>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.parentElement.style.display='none'">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    getIcon(type) {
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        return icons[type] || icons.info;
+    }
+}
+className = `toast-icon ${notification.type} ${iconMap[notification.type]}`;
         this.container.querySelector('.toast-message').textContent = notification.message;
         
         this.container.classList.add('show');
