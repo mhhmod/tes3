@@ -61,7 +61,7 @@
                     <i class="fas fa-fire"></i>
                     <span>GrindCTRL</span>
                 </div>
-                <nav class="nav" id="site-menu">
+                <nav class="nav">
                     <a href="#home" class="nav-link" data-section="home">Home</a>
                     <a href="#collection" class="nav-link" data-section="collection">Collection</a>
                     <a href="#about" class="nav-link" data-section="about">About</a>
@@ -84,10 +84,10 @@
                         <i class="fas fa-heart"></i>
                         <span class="wishlist-count" id="wishlistCount">0</span>
                     </div>
+                    <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
                 </nav>
-                <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-expanded="false" aria-controls="site-menu">
-                    <i class="fas fa-bars"></i>
-                </button>
             </div>
         </div>
     </header>
@@ -217,6 +217,12 @@
                             </div>
                         </div>
                     </div>
+                    <!--
+                        Removed the static image grid from the about section.
+                        The original design included a set of lifestyle photos that added visual flair to the page,
+                        but they were unrelated to the products and cluttered the layout. Removing them keeps the
+                        page focused on your products and brand story without distracting photography.
+                    -->
                 </div>
             </div>
         </section>
@@ -259,23 +265,31 @@
                 </div>
                 <div class="footer-section">
                     <h3>Newsletter</h3>
-                    <p>Stay updated with our latest releases and exclusive offers.</p>
+                    <p>Subscribe for exclusive offers and updates</p>
                     <form class="newsletter-form" id="newsletterForm">
-                        <input type="email" placeholder="Your email" required>
-                        <button type="submit" class="btn btn-primary">Subscribe</button>
+                        <input type="email" placeholder="Your email address" required>
+                        <button type="submit">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </form>
+                </div>
+                <!-- Contact Us Section -->
+                <div class="footer-section">
+                    <h3>Contact Us</h3>
+                    <p>Have a question or feedback? Send us a message.</p>
+                    <form class="contact-form" id="contactForm">
+                        <input type="text" name="name" placeholder="Your name" required>
+                        <input type="email" name="email" placeholder="Your email" required>
+                        <textarea name="message" placeholder="Your message" rows="3" required></textarea>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
                     </form>
                 </div>
             </div>
             <div class="footer-bottom">
-                <div class="container">
-                    <div class="footer-bottom-content">
-                        <p>&copy; 2024 GrindCTRL. All rights reserved.</p>
-                        <div class="footer-links">
-                            <a href="#">Privacy Policy</a>
-                            <a href="#">Terms of Service</a>
-                            <a href="#">Cookie Policy</a>
-                        </div>
-                    </div>
+                <p>&copy; 2025 GrindCTRL. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
                 </div>
             </div>
         </div>
@@ -289,12 +303,10 @@
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="cart-body">
-            <div class="cart-items" id="cartItems">
-                <!-- Populated by JavaScript -->
-            </div>
+        <div class="cart-items" id="cartItems">
+            <!-- Populated by JavaScript -->
         </div>
-        <div class="cart-footer" id="cartSummary">
+        <div class="cart-summary" id="cartSummary">
             <!-- Populated by JavaScript -->
         </div>
     </div>
@@ -307,19 +319,18 @@
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="wishlist-body">
-            <div class="wishlist-items" id="wishlistItems">
-                <!-- Populated by JavaScript -->
-            </div>
+        <div class="wishlist-items" id="wishlistItems">
+            <!-- Populated by JavaScript -->
         </div>
     </div>
 
-    <!-- Quick View Modal -->
+    <!-- Product Quick View Modal -->
     <div class="modal" id="quickViewModal">
+        <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="quickViewTitle">Product Details</h3>
-                <button class="modal-close" onclick="app.closeQuickView()">
+                <h3>Quick View</h3>
+                <button class="modal-close" id="quickViewClose">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -331,25 +342,26 @@
 
     <!-- Checkout Modal -->
     <div class="modal" id="checkoutModal">
+        <div class="modal-overlay"></div>
         <div class="modal-content checkout-modal">
             <div class="modal-header">
                 <h3>Checkout</h3>
-                <button class="modal-close" onclick="app.closeCheckout()">
+                <button class="modal-close" id="checkoutClose">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="checkout-progress">
                 <div class="progress-step active" data-step="1">
                     <span class="step-number">1</span>
-                    <span class="step-title">Shipping</span>
+                    <span class="step-label">Shipping</span>
                 </div>
                 <div class="progress-step" data-step="2">
                     <span class="step-number">2</span>
-                    <span class="step-title">Payment</span>
+                    <span class="step-label">Payment</span>
                 </div>
                 <div class="progress-step" data-step="3">
                     <span class="step-number">3</span>
-                    <span class="step-title">Review</span>
+                    <span class="step-label">Review</span>
                 </div>
             </div>
             <div class="modal-body" id="checkoutBody">
@@ -358,186 +370,18 @@
         </div>
     </div>
 
-    <!-- Return Modal -->
-    <div class="modal" id="returnModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Return Order</h3>
-                <button class="modal-close" onclick="app.closeReturnModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="returnForm">
-                    <div class="form-group">
-                        <label for="returnPhone">Phone Number</label>
-                        <input type="tel" id="returnPhone" name="phone" required 
-                               placeholder="+20 123 456 7890">
-                        <small>Enter the phone number used for your order</small>
-                    </div>
-                    
-                    <div class="form-group" id="returnOrderSection" style="display: none;">
-                        <label for="returnOrderList">Select Order</label>
-                        <select id="returnOrderList" name="orderId" required>
-                            <option value="">Choose an order...</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="returnReasonSection" style="display: none;">
-                        <label for="returnReason">Reason for Return *</label>
-                        <textarea id="returnReason" name="reason" required 
-                                  placeholder="Please describe why you want to return this item..."
-                                  rows="4"></textarea>
-                        <div class="error-message" id="returnReasonError" style="display: none;">
-                            Please provide a reason for the return.
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="app.closeReturnModal()">
-                            Cancel
-                        </button>
-                        <button type="submit" id="returnSubmit" class="btn btn-primary">
-                            Submit Return Request
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Exchange Modal -->
-    <div class="modal" id="exchangeModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Exchange Order</h3>
-                <button class="modal-close" onclick="app.closeExchangeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="exchangeForm">
-                    <div class="form-group">
-                        <label for="exchangePhone">Phone Number</label>
-                        <input type="tel" id="exchangePhone" name="phone" required 
-                               placeholder="+20 123 456 7890">
-                        <small>Enter the phone number used for your order</small>
-                    </div>
-                    
-                    <div class="form-group" id="exchangeOrderSection" style="display: none;">
-                        <label for="exchangeOrderList">Select Order</label>
-                        <select id="exchangeOrderList" name="orderId" required>
-                            <option value="">Choose an order...</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="exchangeOldItemSection" style="display: none;">
-                        <label for="exchangeOldItem">Item to Exchange</label>
-                        <select id="exchangeOldItem" name="oldItem" required>
-                            <option value="">Select item to exchange...</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="exchangeNewItemSection" style="display: none;">
-                        <label for="exchangeNewItem">Exchange For</label>
-                        <select id="exchangeNewItem" name="newItem" required>
-                            <option value="">Select new item...</option>
-                        </select>
-                    </div>
-
-                    <div class="exchange-delta" id="exchangeDelta" style="display: none;">
-                        <div class="delta-info">
-                            <span class="delta-label">Price Difference:</span>
-                            <span class="delta-amount" id="deltaAmount">0.00 EGP</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group" id="exchangeCommentSection" style="display: none;">
-                        <label for="exchangeComment">Comment (Optional)</label>
-                        <textarea id="exchangeComment" name="comment" 
-                                  placeholder="Any additional comments..."
-                                  rows="3"></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="app.closeExchangeModal()">
-                            Cancel
-                        </button>
-                        <button type="submit" id="exchangeSubmit" class="btn btn-primary">
-                            Submit Exchange Request
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div class="modal" id="successModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Order Confirmed!</h3>
-                <button class="modal-close" onclick="app.closeSuccessModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="success-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div id="successMessage" class="success-message">
-                    <!-- Populated by JavaScript -->
-                </div>
-                <div id="orderDetails" class="order-details">
-                    <!-- Populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Size Guide Modal -->
     <div class="modal" id="sizeGuideModal">
+        <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Size Guide</h3>
-                <button class="modal-close" onclick="closeSizeGuide()">
+                <button class="modal-close" id="sizeGuideClose">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <div class="size-guide-content">
-                    <div class="size-chart">
-                        <h4>T-Shirts & Hoodies</h4>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Size</th>
-                                    <th>Chest (cm)</th>
-                                    <th>Length (cm)</th>
-                                    <th>Sleeve (cm)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td>XS</td><td>84-89</td><td>64</td><td>20</td></tr>
-                                <tr><td>S</td><td>89-94</td><td>66</td><td>21</td></tr>
-                                <tr><td>M</td><td>94-99</td><td>68</td><td>22</td></tr>
-                                <tr><td>L</td><td>99-104</td><td>70</td><td>23</td></tr>
-                                <tr><td>XL</td><td>104-109</td><td>72</td><td>24</td></tr>
-                                <tr><td>XXL</td><td>109-114</td><td>74</td><td>25</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="size-tips">
-                        <h4>Sizing Tips</h4>
-                        <ul>
-                            <li>All measurements are in centimeters</li>
-                            <li>Measurements are taken flat across the garment</li>
-                            <li>For oversized fit, size up one size</li>
-                            <li>When in doubt, refer to the size chart</li>
-                            <li>Contact us if you need help choosing</li>
-                        </ul>
-                    </div>
-                </div>
+            <div class="modal-body" id="sizeGuideBody">
+                <!-- Populated by JavaScript -->
             </div>
         </div>
     </div>
@@ -545,56 +389,105 @@
     <!-- Notification Toast -->
     <div class="notification-toast" id="notificationToast">
         <div class="toast-content">
-            <div class="toast-icon" id="toastIcon">
-                <i class="fas fa-info-circle"></i>
-            </div>
-            <div class="toast-message" id="toastMessage">
-                Notification message
-            </div>
-            <button class="toast-close" id="toastClose">
+            <i class="toast-icon"></i>
+            <span class="toast-message"></span>
+            <button class="toast-close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content success-modal">
+            <div class="modal-body">
+                <div class="success-content">
+                    <i class="fas fa-check-circle success-icon"></i>
+                    <h3>Order Confirmed!</h3>
+                    <p id="successMessage">Thank you for your order. You will receive a confirmation email shortly.</p>
+                    <div class="order-details" id="orderDetails">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                    <button class="btn btn-primary" onclick="closeSuccessModal()">
+                        Continue Shopping
+                    </button>
+                    <!-- Added order action buttons for exchanges and returns -->
+                    <div class="order-actions">
+                        <button class="btn btn-secondary" onclick="app.handleExchangeOrder()">
+                            Exchange Order
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.handleReturnOrder()" style="margin-left: var(--spacing-sm);">
+                            Return Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Order Modal -->
+    <div class="modal" id="returnModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Return Order</h3>
+                <button class="modal-close" onclick="app.closeModal('return')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Phone-based return form: customers enter their phone number to lookup
+                     past orders, then choose the order they wish to return. -->
+                <form id="returnForm" class="return-exchange-form">
+                    <input type="tel" id="returnPhone" placeholder="Your phone number" required>
+                    <button type="button" id="findReturnOrders" class="btn btn-secondary">Find Orders</button>
+                    <!-- Container that will list orders associated with the entered phone number.  Hidden until populated. -->
+                    <div id="returnOrderList" class="order-list" style="display: none;"></div>
+                    <textarea id="returnMessage" placeholder="Reason for return" rows="3" required></textarea>
+                    <button type="submit" id="returnSubmit" class="btn btn-primary" disabled>Submit Return Request</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Order Modal -->
+    <div class="modal" id="exchangeModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Exchange Order</h3>
+                <button class="modal-close" onclick="app.closeModal('exchange')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="exchangeForm" class="return-exchange-form">
+                    <input type="tel" id="exchangePhone" placeholder="Your phone number" required>
+                    <button type="button" id="findExchangeOrders" class="btn btn-secondary">Find Orders</button>
+                    <div id="exchangeOrderList" class="order-list" style="display: none;"></div>
+                    <textarea id="exchangeMessage" placeholder="Reason for exchange" rows="3" required></textarea>
+                    <button type="submit" id="exchangeSubmit" class="btn btn-primary" disabled>Submit Exchange Request</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Configuration -->
     <script src="config.js"></script>
-    <script src="main.js"></script>
 
-    <!-- Initialize App -->
-    <script>
-        // Global functions for inline event handlers
-        function scrollToSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            if (section) {
-                Utils.scrollToElement(section, 80);
-            }
-        }
-
-        function openLookbook() {
-            window.open('https://youtube.com/watch?v=dQw4w9WgXcQ', '_blank');
-        }
-
-        function openSizeGuide() {
-            const modal = document.getElementById('sizeGuideModal');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            }
-        }
-
-        function closeSizeGuide() {
-            const modal = document.getElementById('sizeGuideModal');
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
-            }
-        }
-
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            window.app = new GrindCTRLApp();
-        });
-    </script>
+    <!-- Main JavaScript -->
+    <!-- Append version parameter to force cache busting after updates -->
+    <!--
+        Use a unique query string on the script URL to force browsers to fetch the latest version.
+        Without cache busting, some clients might continue to serve stale JavaScript even after an
+        update. Bump this version string whenever the contents of main.js change.
+    -->
+    <script src="main.js?v=2025-08-24d" defer></script>
 </body>
 </html>

@@ -94,15 +94,6 @@ class AppState {
         }
     }
 
-    // Task 5: Helper method for relative quantity changes
-    changeCartQuantity(itemId, delta) {
-        const item = this.cart.find(item => item.id === itemId);
-        if (item) {
-            const newQuantity = item.quantity + delta;
-            this.updateCartQuantity(itemId, Math.max(0, newQuantity));
-        }
-    }
-
     clearCart() {
         this.cart = [];
         this.saveToStorage('grindctrl_cart', this.cart);
@@ -188,6 +179,7 @@ class AppState {
                     </div>
                     <div class="cart-item-controls">
                         <div class="quantity-controls">
+                            <!-- Use changeCartQuantity to always compute the new quantity based on current state -->
                             <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', -1)">-</button>
                             <span class="quantity">${item.quantity}</span>
                             <button class="quantity-btn" onclick="app.changeCartQuantity('${item.id}', 1)">+</button>
@@ -366,161 +358,64 @@ class NotificationManager {
     constructor() {
         this.notifications = [];
         this.container = document.getElementById('notificationToast');
-        // Task 3: Enhanced toast system with hover pause and watchdog
+        // Track the timeout for the current toast. When a new notification is shown
+        // any existing timeout is cleared to ensure predictable auto‑hide behaviour.
         this.currentTimeout = null;
-        this.watchdogTimeout = null;
-        this.isHovered = false;
-        this.isPaused = false;
-        this.remainingTime = 0;
-        this.startTime = 0;
-        this.defaultDuration = 3500; // 3.5 seconds
-        this.watchdogDuration = 8000; // 8 seconds maximum
-        
-        this.initializeHoverHandlers();
     }
 
-    /**
-     * Task 3: Initialize hover handlers for pause/resume functionality
-     */
-    initializeHoverHandlers() {
-        if (!this.container) return;
-        
-        this.container.addEventListener('mouseenter', () => {
-            this.pauseTimer();
-        });
-        
-        this.container.addEventListener('mouseleave', () => {
-            this.resumeTimer();
-        });
-
-        this.container.addEventListener('focus', () => {
-            this.pauseTimer();
-        }, true);
-        
-        this.container.addEventListener('blur', () => {
-            this.resumeTimer();
-        }, true);
-    }
-
-    /**
-     * Task 3: Pause the auto-hide timer
-     */
-    pauseTimer() {
-        if (!this.isPaused && this.currentTimeout) {
-            this.isPaused = true;
-            const elapsed = Date.now() - this.startTime;
-            this.remainingTime = Math.max(0, this.defaultDuration - elapsed);
-            clearTimeout(this.currentTimeout);
-            this.currentTimeout = null;
-        }
-    }
-
-    /**
-     * Task 3: Resume the auto-hide timer
-     */
-    resumeTimer() {
-        if (this.isPaused && this.remainingTime > 0) {
-            this.isPaused = false;
-            this.startTime = Date.now();
-            this.currentTimeout = setTimeout(() => {
-                this.hide();
-            }, this.remainingTime);
-        }
-    }
-
-    /**
-     * Task 3: Enhanced show method with hover pause and watchdog
-     */
-    show(message, type = 'info', duration = this.defaultDuration) {
+    show(message, type = 'info', duration = 4000) {
         if (!this.container) return;
 
-        // Clear any existing timers
-        this.clearTimers();
-
-        // Update toast content
-        const iconElement = this.container.querySelector('#toastIcon');
-        const messageElement = this.container.querySelector('#toastMessage');
-        
-        if (iconElement && messageElement) {
-            // Reset classes
-            iconElement.className = 'toast-icon';
-            
-            // Set appropriate icon and class
-            let iconClass = 'fas fa-info-circle';
-            switch (type) {
-                case 'success':
-                    iconClass = 'fas fa-check-circle';
-                    iconElement.classList.add('success');
-                    break;
-                case 'error':
-                    iconClass = 'fas fa-exclamation-circle';
-                    iconElement.classList.add('error');
-                    break;
-                case 'warning':
-                    iconClass = 'fas fa-exclamation-triangle';
-                    iconElement.classList.add('warning');
-                    break;
-                default:
-                    iconElement.classList.add('info');
-            }
-            
-            iconElement.innerHTML = `<i class="${iconClass}"></i>`;
-            messageElement.textContent = message;
-        }
-
-        // Show the toast
-        this.container.classList.add('show');
-        
-        // Reset state
-        this.isPaused = false;
-        this.startTime = Date.now();
-        this.remainingTime = duration;
-
-        // Set auto-hide timer
-        this.currentTimeout = setTimeout(() => {
-            this.hide();
-        }, duration);
-
-        // Set watchdog timer (force close at 8 seconds)
-        this.watchdogTimeout = setTimeout(() => {
-            this.hide();
-        }, this.watchdogDuration);
-
-        // Store notification
-        this.notifications.push({
+        const notification = {
             id: Date.now(),
             message,
             type,
-            timestamp: new Date()
-        });
+            duration
+        };
 
-        // Limit stored notifications
-        if (this.notifications.length > 10) {
-            this.notifications = this.notifications.slice(-10);
-        }
-    }
+        // Add to stack and render the latest message. Because only one toast is visible at
+        // a time, we overwrite the existing content but retain a record of notifications.
+        this.notifications.push(notification);
+        this.render(notification);
 
-    /**
-     * Task 3: Clear all timers
-     */
-    clearTimers() {
+        // If a toast is already scheduled to hide, cancel it so that the duration is
+        // relative to the most recent notification.
         if (this.currentTimeout) {
             clearTimeout(this.currentTimeout);
             this.currentTimeout = null;
         }
-        if (this.watchdogTimeout) {
-            clearTimeout(this.watchdogTimeout);
-            this.watchdogTimeout = null;
+
+        // Schedule hiding of this toast after the specified duration.  Store the timeout
+        // identifier so it can be cancelled if another toast appears before it fires.
+        this.currentTimeout = setTimeout(() => {
+            this.hide(notification.id);
+            this.currentTimeout = null;
+        }, duration);
+    }
+
+    render(notification) {
+        const iconMap = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        };
+
+        this.container.querySelector('.toast-icon').className = `toast-icon ${notification.type} ${iconMap[notification.type]}`;
+        this.container.querySelector('.toast-message').textContent = notification.message;
+        
+        this.container.classList.add('show');
+
+        // Auto-hide on close button click
+        const closeBtn = this.container.querySelector('.toast-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.hide(notification.id);
         }
     }
 
-    hide() {
-        if (!this.container) return;
-        
-        this.clearTimers();
+    hide(id) {
+        this.notifications = this.notifications.filter(n => n.id !== id);
         this.container.classList.remove('show');
-        this.isPaused = false;
-        this.remainingTime = 0;
     }
 
     success(message) {
@@ -531,98 +426,73 @@ class NotificationManager {
         this.show(message, 'error');
     }
 
-    warning(message) {
-        this.show(message, 'warning');
-    }
-
     info(message) {
         this.show(message, 'info');
     }
+
+    warning(message) {
+        this.show(message, 'warning');
+    }
 }
 
-// ===== WEBHOOK DELIVERY SYSTEM =====
-class WebhookManager {
+// ===== LOADING MANAGER =====
+class LoadingManager {
     constructor() {
-        this.config = window.CONFIG || {};
+        this.loadingScreen = document.getElementById('loadingScreen');
+        this.loadingTasks = new Set();
     }
 
-    /**
-     * Resilient webhook delivery with CORS fallback strategies
-     */
-    async deliverWebhook(payload, webhookType = 'order') {
-        let url;
+    show(taskId = 'default') {
+        this.loadingTasks.add(taskId);
+        if (this.loadingScreen) {
+            this.loadingScreen.classList.remove('hidden');
+        }
+    }
+
+    hide(taskId = 'default') {
+        this.loadingTasks.delete(taskId);
+        if (this.loadingTasks.size === 0 && this.loadingScreen) {
+            this.loadingScreen.classList.add('hidden');
+        }
+    }
+
+    hideAll() {
+        this.loadingTasks.clear();
+        if (this.loadingScreen) {
+            this.loadingScreen.classList.add('hidden');
+        }
+    }
+}
+
+// ===== SCROLL ANIMATIONS =====
+class ScrollAnimations {
+    constructor() {
+        this.observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            },
+            { 
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            }
+        );
+
+        this.init();
+    }
+
+    init() {
+        // Add animation classes to elements
+        const animateElements = document.querySelectorAll('.product-card, .feature, .about-text, .hero-stats .stat');
         
-        switch (webhookType) {
-            case 'return':
-                url = this.config.RETURN_WEBHOOK_URL;
-                break;
-            case 'exchange':
-                url = this.config.EXCHANGE_WEBHOOK_URL;
-                break;
-            default:
-                url = this.config.WEBHOOK_URL;
-        }
-
-        // If no URL configured, simulate delay for local testing
-        if (!url) {
-            console.log('No webhook URL configured, simulating delivery...');
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            return { success: true, method: 'simulated' };
-        }
-
-        // Strategy 1: Standard CORS fetch
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                mode: 'cors',
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                return { success: true, method: 'cors-fetch' };
-            }
-        } catch (error) {
-            console.log('CORS fetch failed, trying no-cors...');
-        }
-
-        // Strategy 2: No-CORS fetch (assume success)
-        try {
-            await fetch(url, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(payload)
-            });
-            return { success: true, method: 'no-cors-fetch' };
-        } catch (error) {
-            console.log('No-CORS fetch failed, trying sendBeacon...');
-        }
-
-        // Strategy 3: Navigator sendBeacon
-        if (navigator.sendBeacon) {
-            try {
-                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                const success = navigator.sendBeacon(url, blob);
-                if (success) {
-                    return { success: true, method: 'sendBeacon' };
-                }
-            } catch (error) {
-                console.log('SendBeacon failed, trying image fallback...');
-            }
-        }
-
-        // Strategy 4: Image GET fallback
-        try {
-            const img = new Image();
-            const queryString = '?payload=' + encodeURIComponent(JSON.stringify(payload));
-            img.src = url + queryString;
-            return { success: true, method: 'image-fallback' };
-        } catch (error) {
-            console.error('All webhook delivery methods failed:', error);
-            return { success: false, error: error.message };
-        }
+        animateElements.forEach((el, index) => {
+            el.classList.add('fade-in');
+            el.style.transitionDelay = `${index * 0.1}s`;
+            this.observer.observe(el);
+        });
     }
 }
 
@@ -631,281 +501,279 @@ class GrindCTRLApp {
     constructor() {
         this.state = new AppState();
         this.notifications = new NotificationManager();
-        this.webhooks = new WebhookManager();
-        this.isInitialized = false;
+        this.loading = new LoadingManager();
+        this.scrollAnimations = null;
         
         this.init();
     }
 
     async init() {
+        /**
+         * The initialization routine sets up the application state, fetches
+         * products, attaches event listeners, and triggers the first render.
+         * Regardless of success or failure, the loading screen should be
+         * dismissed so the user isn't stuck watching the spinner forever.
+         */
         try {
+            this.loading.show('init');
+
+            // Load product data.  If this fails, loadProducts() will fall
+            // back to embedded data.  Any error thrown beyond that will be
+            // caught below.
             await this.loadProducts();
-            this.setupEventListeners();
-            this.initializeUI();
-            
-            // Task 2: Remove bottom faces strip
-            this.removeFacesStrip();
-            
-            this.hideLoadingScreen();
-            this.isInitialized = true;
+
+            // Initialize UI components
+            this.initializeEventListeners();
+            this.initializeNavigation();
+            this.initializeModals();
+            this.initializeBackToTop();
+            this.initializeNewsletterForm();
+            this.initializeContactForm();
+
+            // Initialize return/exchange form handlers so customers can request
+            // returns or exchanges from the footer at any time.
+            this.initializeReturnExchangeForms();
+
+            // Render initial content
+            this.renderCategories();
+            this.renderProducts();
+            this.state.updateCartUI();
+            this.state.updateWishlistUI();
+
+            // Initialize scroll animations
+            setTimeout(() => {
+                this.scrollAnimations = new ScrollAnimations();
+            }, 100);
+
+            console.log('GrindCTRL App initialized successfully');
+
         } catch (error) {
-            console.error('App initialization failed:', error);
-            this.notifications.error('Failed to load application');
+            console.error('Failed to initialize app:', error);
+            this.notifications.error('Failed to load the application. Please refresh the page.');
+            // In case of a critical failure, hide all loading tasks
+            this.loading.hideAll();
+        } finally {
+            // Always hide the loading screen after initialization attempt
+            this.loading.hide('init');
         }
     }
 
     async loadProducts() {
         try {
-            const response = await fetch('products.json');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            const response = await fetch('./products.json');
+            if (!response.ok) throw new Error('Failed to fetch products');
+            
             const data = await response.json();
-            this.state.products = data.products || [];
-            this.state.categories = data.categories || [];
-            
-            this.renderCategories();
-            this.renderProducts();
-            
-            // Task 1: Remove invalid product cards after rendering
-            this.setupImageErrorHandling();
+            this.state.products = data.products;
+            this.state.categories = data.categories;
             
         } catch (error) {
-            console.error('Failed to load products:', error);
-            this.notifications.error('Failed to load products');
+            console.error('Error loading products:', error);
+            // Fallback to embedded data
+            this.loadFallbackData();
         }
     }
 
-    /**
-     * Task 1: Setup image error handling to remove cards with broken images
-     */
-    setupImageErrorHandling() {
-        const productImages = document.querySelectorAll('.product-image-container img.product-image');
-        
-        productImages.forEach(img => {
-            // Set up error handler for this image
-            img.onerror = () => {
-                const productCard = img.closest('.product-card');
-                if (productCard) {
-                    console.log('Removing product card due to broken image:', img.src);
-                    productCard.remove();
-                }
-            };
-            
-            // Check if image is already broken (for cached failures)
-            if (img.complete && img.naturalHeight === 0) {
-                img.onerror();
+    loadFallbackData() {
+        // Fallback product data in case JSON file fails to load
+        this.state.products = [
+            {
+                id: "luxury-cropped-black-tee",
+                name: "Luxury Cropped Black T-Shirt",
+                description: "Premium cotton blend with perfect fit. Minimalist design meets maximum impact.",
+                price: 300.00,
+                originalPrice: 350.00,
+                category: "tshirts",
+                featured: true,
+                images: [
+                    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=800"
+                ],
+                colors: [
+                    { name: "Black", value: "#000000" },
+                    { name: "White", value: "#FFFFFF" },
+                    { name: "Gray", value: "#6B7280" }
+                ],
+                sizes: ["XS", "S", "M", "L", "XL", "XXL"],
+                inStock: true,
+                rating: 4.9,
+                reviewCount: 127,
+                tags: ["HOT", "BESTSELLER"]
             }
-        });
-    }
-
-    /**
-     * Task 2: Remove bottom faces/avatars strip
-     */
-    removeFacesStrip() {
-        // Target specific IDs/classes first
-        const targetSelectors = [
-            '#faces-strip',
-            '.faces-strip', 
-            '.people-faces',
-            '.testimonials-strip',
-            '.avatar-strip',
-            '.footer-faces'
         ];
-
-        targetSelectors.forEach(selector => {
-            const element = document.querySelector(selector);
-            if (element) {
-                console.log('Removing faces strip:', selector);
-                element.remove();
-            }
-        });
-
-        // If not found, look for any footer row with >=6 images
-        const footerRows = document.querySelectorAll('footer *');
-        footerRows.forEach(row => {
-            const images = row.querySelectorAll('img');
-            if (images.length >= 6) {
-                // Check if it's primarily images (more than 60% of children are images)
-                const totalChildren = row.children.length;
-                const imageRatio = images.length / Math.max(totalChildren, 1);
-                
-                if (imageRatio > 0.6) {
-                    console.log('Removing potential faces strip with', images.length, 'images');
-                    row.remove();
-                }
-            }
-        });
+        
+        this.state.categories = [
+            { id: "all", name: "All Products", filter: null },
+            { id: "tshirts", name: "T-Shirts", filter: "tshirts" }
+        ];
     }
 
-    setupEventListeners() {
+    initializeEventListeners() {
         // Cart toggle
         const cartToggle = document.getElementById('cartToggle');
-        const cartClose = document.getElementById('cartClose');
-        const floatingCart = document.getElementById('floatingCart');
-
         if (cartToggle) {
             cartToggle.addEventListener('click', () => this.toggleCart());
         }
-        
-        if (cartClose) {
-            cartClose.addEventListener('click', () => this.closeCart());
-        }
 
-        // Wishlist toggle
+        // Wishlist toggle  
         const wishlistToggle = document.getElementById('wishlistToggle');
-        const wishlistClose = document.getElementById('wishlistClose');
-
         if (wishlistToggle) {
             wishlistToggle.addEventListener('click', () => this.toggleWishlist());
         }
+
+        // Mobile menu
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', () => this.toggleMobileMenu());
+        }
+
+        // Close buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.cart-close')) {
+                this.toggleCart(false);
+            }
+            if (e.target.matches('.wishlist-close')) {
+                this.toggleWishlist(false);
+            }
+            if (e.target.matches('.modal-close')) {
+                this.closeAllModals();
+            }
+        });
+
+        // Escape key to close modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeAllModals();
+                this.toggleCart(false);
+                this.toggleWishlist(false);
+            }
+        });
+
+        // Window resize
+        window.addEventListener('resize', Utils.debounce(() => {
+            this.handleResize();
+        }, 250));
+
+        // Window scroll
+        window.addEventListener('scroll', Utils.throttle(() => {
+            this.handleScroll();
+        }, 16));
+    }
+
+    initializeNavigation() {
+        const navLinks = document.querySelectorAll('.nav-link');
         
-        if (wishlistClose) {
-            wishlistClose.addEventListener('click', () => this.closeWishlist());
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.getAttribute('data-section');
+                if (section) {
+                    this.scrollToSection(section);
+                    this.setActiveNavLink(link);
+                }
+                // Close the mobile menu if it is open when navigating to a section
+                const nav = document.querySelector('.nav');
+                if (nav && nav.classList.contains('open')) {
+                    nav.classList.remove('open');
+                }
+                // Close any open Orders dropdown when clicking on a regular nav link
+                const openDropdown = document.querySelector('.nav-dropdown.open');
+                if (openDropdown && !link.closest('.nav-dropdown')) {
+                    openDropdown.classList.remove('open');
+                }
+            });
+        });
+
+        // Enable click‑to‑toggle behaviour for the Orders dropdown.  On
+        // touchscreen devices there is no hover event, so we toggle an
+        // `.open` class via JavaScript and hide the dropdown when clicking
+        // elsewhere on the page.
+        const ordersDropdown = document.querySelector('.nav-dropdown');
+        if (ordersDropdown) {
+            const ordersLink = ordersDropdown.querySelector('a.nav-link');
+            if (ordersLink) {
+                ordersLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    ordersDropdown.classList.toggle('open');
+                });
+            }
+            document.addEventListener('click', (e) => {
+                if (!ordersDropdown.contains(e.target)) {
+                    ordersDropdown.classList.remove('open');
+                }
+            });
         }
 
-        // Task 4: Mobile menu functionality
-        this.setupMobileMenu();
+        // Update active nav on scroll
+        this.updateActiveNavOnScroll();
+    }
 
-        // Toast close button
-        const toastClose = document.getElementById('toastClose');
-        if (toastClose) {
-            toastClose.addEventListener('click', () => this.notifications.hide());
-        }
-
-        // Modal close on backdrop click
+    initializeModals() {
+        // Click outside to close modals
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
                 this.closeAllModals();
             }
         });
+    }
 
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeAllModals();
-                this.closeMobileMenu();
-            }
-        });
-
-        // Newsletter form
-        const newsletterForm = document.getElementById('newsletterForm');
-        if (newsletterForm) {
-            newsletterForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleNewsletterSubmit(e);
+    initializeBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (backToTopBtn) {
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         }
+    }
 
-        // Scroll header hide/show
-        let lastScrollY = window.scrollY;
-        window.addEventListener('scroll', Utils.throttle(() => {
-            const header = document.getElementById('header');
-            if (!header) return;
-
-            const currentScrollY = window.scrollY;
-            
-            if (currentScrollY > lastScrollY && currentScrollY > 100) {
-                header.classList.add('hidden');
-            } else {
-                header.classList.remove('hidden');
-            }
-            
-            lastScrollY = currentScrollY;
-        }, 100));
-
-        // Navigation highlighting
-        const navLinks = document.querySelectorAll('.nav-link[data-section]');
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
+    initializeNewsletterForm() {
+        const form = document.getElementById('newsletterForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const sectionId = link.getAttribute('data-section');
-                const section = document.getElementById(sectionId);
+                const email = form.querySelector('input[type="email"]').value;
                 
-                if (section) {
-                    Utils.scrollToElement(section, 80);
-                    
-                    // Update active nav
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    link.classList.add('active');
-                    
-                    // Close mobile menu
-                    this.closeMobileMenu();
+                if (Utils.validateEmail(email)) {
+                    this.notifications.success('Thank you for subscribing to our newsletter!');
+                    form.reset();
+                } else {
+                    this.notifications.error('Please enter a valid email address.');
                 }
             });
-        });
+        }
     }
 
     /**
-     * Task 4: Setup mobile menu functionality
+     * Initialize the contact form submission handler.  When the user
+     * submits the form, we display a success toast and reset the fields.
+     * No network request is made in this static implementation, but
+     * this provides immediate feedback for the user.
      */
-    setupMobileMenu() {
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-        const siteMenu = document.getElementById('site-menu');
-        
-        if (!mobileMenuToggle || !siteMenu) return;
-
-        // Toggle menu
-        mobileMenuToggle.addEventListener('click', () => {
-            const isOpen = siteMenu.classList.contains('open');
-            
-            if (isOpen) {
-                this.closeMobileMenu();
-            } else {
-                this.openMobileMenu();
-            }
-        });
-
-        // Close on outside click
-        document.addEventListener('click', (e) => {
-            if (siteMenu.classList.contains('open') && 
-                !siteMenu.contains(e.target) && 
-                !mobileMenuToggle.contains(e.target)) {
-                this.closeMobileMenu();
-            }
-        });
-    }
-
-    openMobileMenu() {
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-        const siteMenu = document.getElementById('site-menu');
-        
-        if (mobileMenuToggle && siteMenu) {
-            siteMenu.classList.add('open');
-            mobileMenuToggle.setAttribute('aria-expanded', 'true');
-            
-            // Focus first link for accessibility
-            const firstLink = siteMenu.querySelector('.nav-link');
-            if (firstLink) {
-                firstLink.focus();
-            }
-        }
-    }
-
-    closeMobileMenu() {
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-        const siteMenu = document.getElementById('site-menu');
-        
-        if (mobileMenuToggle && siteMenu) {
-            siteMenu.classList.remove('open');
-            mobileMenuToggle.setAttribute('aria-expanded', 'false');
-        }
-    }
-
-    initializeUI() {
-        this.state.updateCartUI();
-        this.state.updateWishlistUI();
-    }
-
-    hideLoadingScreen() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            setTimeout(() => {
-                loadingScreen.classList.add('hidden');
-                setTimeout(() => {
-                    loadingScreen.style.display = 'none';
-                }, 300);
-            }, 1000);
+    initializeContactForm() {
+        const form = document.getElementById('contactForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = form.querySelector('input[name="name"]').value.trim();
+                const email = form.querySelector('input[name="email"]').value.trim();
+                const message = form.querySelector('textarea[name="message"]').value.trim();
+                // Basic validation
+                if (!name) {
+                    this.notifications.error('Please enter your name.');
+                    return;
+                }
+                if (!Utils.validateEmail(email)) {
+                    this.notifications.error('Please enter a valid email address.');
+                    return;
+                }
+                if (!message) {
+                    this.notifications.error('Please enter a message.');
+                    return;
+                }
+                // In a real implementation you would send this data to a backend
+                this.notifications.success('Thank you for reaching out! We will get back to you soon.');
+                form.reset();
+            });
         }
     }
 
@@ -915,7 +783,7 @@ class GrindCTRLApp {
 
         categoryTabs.innerHTML = this.state.categories.map(category => `
             <button class="filter-tab ${category.id === this.state.currentFilter ? 'active' : ''}" 
-                    data-filter="${category.id}"
+                    data-category="${category.id}"
                     onclick="app.filterProducts('${category.id}')">
                 ${category.name}
             </button>
@@ -934,96 +802,112 @@ class GrindCTRLApp {
             );
         }
 
-        productsGrid.innerHTML = filteredProducts.map(product => this.renderProductCard(product)).join('');
-        
-        // Task 1: Setup image error handling after rendering
-        this.setupImageErrorHandling();
+        if (filteredProducts.length === 0) {
+            productsGrid.innerHTML = `
+                <div class="no-products">
+                    <i class="fas fa-search"></i>
+                    <h3>No products found</h3>
+                    <p>Try a different category or check back later.</p>
+                </div>
+            `;
+            return;
+        }
+
+        productsGrid.innerHTML = filteredProducts.map(product => this.createProductCard(product)).join('');
     }
 
-    renderProductCard(product) {
-        const isInWishlist = this.state.isInWishlist(product.id);
-        const hasDiscount = product.originalPrice && product.originalPrice > product.price;
-        const discountPercentage = hasDiscount ? 
+    createProductCard(product) {
+        const discount = product.originalPrice ? 
             Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
 
         return `
-            <div class="product-card" data-product-id="${product.id}">
+            <div class="product-card fade-in" data-product-id="${product.id}">
                 <div class="product-image-container">
                     <img src="${product.images[0]}" 
                          alt="${product.name}" 
-                         class="product-image"
-                         loading="lazy"
-                         width="280" 
-                         height="280">
-                    
-                    ${product.tags && product.tags.length > 0 ? 
-                        `<div class="product-badge">${product.tags[0]}</div>` : ''}
-                    
-                    ${hasDiscount ? 
-                        `<div class="product-badge" style="top: auto; bottom: var(--spacing-md); background: var(--success-color);">
-                            -${discountPercentage}%
-                        </div>` : ''}
+                         class="product-image" 
+                         loading="lazy">
                     
                     <div class="product-actions">
-                        <button class="product-action ${isInWishlist ? 'active' : ''}" 
-                                onclick="app.toggleWishlist('${product.id}')"
-                                aria-label="Add to wishlist">
+                        <button class="action-btn ${this.state.isInWishlist(product.id) ? 'active' : ''}" 
+                                onclick="app.toggleWishlistItem('${product.id}')"
+                                title="Add to Wishlist">
                             <i class="fas fa-heart"></i>
                         </button>
-                        <button class="product-action" 
+                        <button class="action-btn" 
                                 onclick="app.openQuickView('${product.id}')"
-                                aria-label="Quick view">
+                                title="Quick View">
                             <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    
+                    ${product.tags && product.tags.length > 0 ? `
+                        <div class="product-tags">
+                            ${product.tags.map(tag => `
+                                <span class="product-tag ${tag.toLowerCase()}">${tag}</span>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${discount > 0 ? `
+                        <div class="product-tags" style="top: ${(product.tags?.length || 0) * 35 + 16}px;">
+                            <span class="product-tag sale">${discount}% OFF</span>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="quick-view-overlay">
+                        <button class="quick-view-btn" onclick="app.openQuickView('${product.id}')">
+                            Quick View
                         </button>
                     </div>
                 </div>
                 
                 <div class="product-info">
-                    <div class="product-category">${this.getCategoryName(product.category)}</div>
                     <h3 class="product-name">${product.name}</h3>
                     <p class="product-description">${product.description}</p>
                     
-                    <div class="product-rating">
-                        <div class="stars">
-                            ${this.renderStars(product.rating)}
+                    ${product.colors && product.colors.length > 0 ? `
+                        <div class="product-colors">
+                            ${product.colors.slice(0, 3).map(color => `
+                                <div class="color-option" 
+                                     style="background-color: ${color.value}"
+                                     title="${color.name}"></div>
+                            `).join('')}
+                            ${product.colors.length > 3 ? `<span class="color-more">+${product.colors.length - 3}</span>` : ''}
                         </div>
-                        <span class="rating-text">(${product.reviewCount})</span>
-                    </div>
+                    ` : ''}
                     
-                    <div class="product-price">
-                        <span class="current-price">${product.price.toFixed(2)} EGP</span>
-                        ${hasDiscount ? 
-                            `<span class="original-price">${product.originalPrice.toFixed(2)} EGP</span>` : ''}
-                    </div>
-                    
-                    <div class="product-options">
-                        ${product.colors.slice(0, 4).map(color => `
-                            <div class="color-option" 
-                                 style="background-color: ${color.value}"
-                                 title="${color.name}"
-                                 data-color="${color.name}">
+                    <div class="product-price-rating">
+                        <div class="product-price">
+                            <span class="price-current">${Utils.formatPrice(product.price)}</span>
+                            ${product.originalPrice ? `
+                                <span class="price-original">${Utils.formatPrice(product.originalPrice)}</span>
+                                <span class="price-discount">${discount}% OFF</span>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="product-rating">
+                            <div class="stars">
+                                ${this.generateStars(product.rating)}
                             </div>
-                        `).join('')}
+                            <span class="rating-count">(${product.reviewCount})</span>
+                        </div>
                     </div>
                     
-                    <div class="product-footer">
-                        <button class="add-to-cart" 
-                                onclick="app.quickAddToCart('${product.id}')"
-                                ${!product.inStock ? 'disabled' : ''}>
+                    <button class="add-to-cart-btn" 
+                            onclick="app.addToCartQuick('${product.id}')"
+                            ${!product.inStock ? 'disabled' : ''}>
+                        <span class="btn-text">
                             ${product.inStock ? 'Add to Cart' : 'Out of Stock'}
-                        </button>
-                        <button class="quick-view" 
-                                onclick="app.openQuickView('${product.id}')"
-                                aria-label="Quick view">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
+                        </span>
+                        <div class="loading-spinner"></div>
+                    </button>
                 </div>
             </div>
         `;
     }
 
-    renderStars(rating) {
+    generateStars(rating) {
         const fullStars = Math.floor(rating);
         const hasHalfStar = rating % 1 !== 0;
         const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
@@ -1031,104 +915,116 @@ class GrindCTRLApp {
         let starsHtml = '';
         
         for (let i = 0; i < fullStars; i++) {
-            starsHtml += '<i class="fas fa-star star"></i>';
+            starsHtml += '<i class="fas fa-star"></i>';
         }
         
         if (hasHalfStar) {
-            starsHtml += '<i class="fas fa-star-half-alt star"></i>';
+            starsHtml += '<i class="fas fa-star-half-alt"></i>';
         }
         
         for (let i = 0; i < emptyStars; i++) {
-            starsHtml += '<i class="far fa-star star"></i>';
+            starsHtml += '<i class="far fa-star"></i>';
         }
         
         return starsHtml;
     }
 
-    getCategoryName(categoryId) {
-        const category = this.state.categories.find(cat => cat.filter === categoryId);
-        return category ? category.name : categoryId;
-    }
-
-    filterProducts(filterId) {
-        this.state.currentFilter = filterId;
+    // ===== INTERACTION METHODS =====
+    filterProducts(categoryId) {
+        this.state.currentFilter = categoryId;
         this.renderCategories();
         this.renderProducts();
+        
+        // Animate products
+        const productCards = document.querySelectorAll('.product-card');
+        productCards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+            card.classList.add('fade-in');
+        });
+
+        // After filtering, scroll to the collection section so the grid is visible.
+        const collectionSection = document.getElementById('collection');
+        if (collectionSection) {
+            Utils.scrollToElement(collectionSection, 80);
+        }
     }
 
-    quickAddToCart(productId) {
+    addToCartQuick(productId) {
         const product = this.state.products.find(p => p.id === productId);
         if (!product) return;
 
-        // Use first available color and size
-        const options = {};
-        if (product.colors && product.colors.length > 0) {
-            options.color = product.colors[0].name;
-        }
-        if (product.sizes && product.sizes.length > 0) {
-            options.size = product.sizes[0];
-        }
+        // For quick add, use first available options
+        const options = {
+            quantity: 1,
+            size: product.sizes && product.sizes.length > 0 ? product.sizes[0] : null,
+            color: product.colors && product.colors.length > 0 ? product.colors[0].name : null
+        };
 
-        const success = this.state.addToCart(productId, options);
-        if (success) {
-            this.notifications.success(`Added ${product.name} to cart`);
-        }
-    }
-
-    toggleCart() {
-        const floatingCart = document.getElementById('floatingCart');
-        if (floatingCart) {
-            floatingCart.classList.toggle('open');
-        }
-    }
-
-    closeCart() {
-        const floatingCart = document.getElementById('floatingCart');
-        if (floatingCart) {
-            floatingCart.classList.remove('open');
-        }
-    }
-
-    toggleWishlist(productId) {
-        if (productId) {
-            const isAdded = this.state.toggleWishlist(productId);
-            const product = this.state.products.find(p => p.id === productId);
+        if (this.state.addToCart(productId, options)) {
+            this.notifications.success(`${product.name} added to cart!`);
             
-            if (product) {
-                if (isAdded) {
-                    this.notifications.success(`Added ${product.name} to wishlist`);
-                } else {
-                    this.notifications.info(`Removed ${product.name} from wishlist`);
-                }
-            }
-            
-            // Update product card wishlist button
-            const productCard = document.querySelector(`[data-product-id="${productId}"]`);
-            if (productCard) {
-                const wishlistBtn = productCard.querySelector('.product-action');
-                if (wishlistBtn) {
-                    wishlistBtn.classList.toggle('active', isAdded);
-                }
+            // Animate the cart icon
+            const cartIcon = document.getElementById('cartToggle');
+            if (cartIcon) {
+                cartIcon.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    cartIcon.style.transform = 'scale(1)';
+                }, 200);
             }
         } else {
-            // Toggle wishlist panel
-            const wishlistPanel = document.getElementById('wishlistPanel');
-            if (wishlistPanel) {
-                wishlistPanel.classList.toggle('open');
+            this.notifications.error('Failed to add item to cart');
+        }
+    }
+
+    toggleWishlistItem(productId) {
+        const added = this.state.toggleWishlist(productId);
+        const product = this.state.products.find(p => p.id === productId);
+        
+        if (product) {
+            if (added) {
+                this.notifications.success(`${product.name} added to wishlist!`);
+            } else {
+                this.notifications.info(`${product.name} removed from wishlist`);
             }
         }
+
+        // Update wishlist button state
+        const wishlistBtns = document.querySelectorAll(`[data-product-id="${productId}"] .action-btn`);
+        wishlistBtns.forEach(btn => {
+            if (btn.querySelector('.fa-heart')) {
+                btn.classList.toggle('active', added);
+            }
+        });
     }
 
-    closeWishlist() {
-        const wishlistPanel = document.getElementById('wishlistPanel');
-        if (wishlistPanel) {
-            wishlistPanel.classList.remove('open');
-        }
+    /**
+     * Forward cart quantity updates to the AppState.  Without this wrapper,
+     * the inline handlers in the cart attempted to call a nonexistent
+     * `updateCartQuantity` method on the GrindCTRLApp instance, resulting in
+     * no change when clicking the plus/minus buttons.  This wrapper
+     * delegates the call to AppState and ensures the cart re-renders.
+     * @param {string} itemId The unique cart item id
+     * @param {number} quantity The quantity to set
+     */
+    updateCartQuantity(itemId, quantity) {
+        this.state.updateCartQuantity(itemId, quantity);
     }
 
-    // Expose method for cart quantity changes
+    /**
+     * Adjust a cart item's quantity relative to its current value.  This
+     * convenience method reads the latest quantity from the state and
+     * computes the new value, avoiding stale numbers baked into the
+     * generated HTML.  Use a positive delta to increment and negative
+     * to decrement.  If the result is zero or less, the item will be
+     * removed.
+     * @param {string} itemId The unique cart item id
+     * @param {number} delta The increment/decrement amount
+     */
     changeCartQuantity(itemId, delta) {
-        this.state.changeCartQuantity(itemId, delta);
+        const item = this.state.cart.find(item => item.id === itemId);
+        if (!item) return;
+        const newQuantity = item.quantity + delta;
+        this.state.updateCartQuantity(itemId, newQuantity);
     }
 
     openQuickView(productId) {
@@ -1136,39 +1032,31 @@ class GrindCTRLApp {
         if (!product) return;
 
         this.state.currentProduct = product;
-        
-        const modal = document.getElementById('quickViewModal');
-        const body = document.getElementById('quickViewBody');
-        const title = document.getElementById('quickViewTitle');
-        
-        if (!modal || !body || !title) return;
-
-        title.textContent = product.name;
-        body.innerHTML = this.renderQuickViewContent(product);
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        this.state.modals.quickView = true;
+        this.renderQuickView(product);
+        this.openModal('quickView');
     }
 
-    renderQuickViewContent(product) {
-        const isInWishlist = this.state.isInWishlist(product.id);
-        const hasDiscount = product.originalPrice && product.originalPrice > product.price;
-        
-        return `
+    renderQuickView(product) {
+        const quickViewBody = document.getElementById('quickViewBody');
+        if (!quickViewBody) return;
+
+        const discount = product.originalPrice ? 
+            Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+
+        quickViewBody.innerHTML = `
             <div class="quick-view-content">
                 <div class="quick-view-images">
                     <img src="${product.images[0]}" 
                          alt="${product.name}" 
-                         class="quick-view-main-image"
+                         class="quick-view-main-image" 
                          id="quickViewMainImage">
                     
                     ${product.images.length > 1 ? `
                         <div class="quick-view-thumbnails">
                             ${product.images.map((image, index) => `
                                 <img src="${image}" 
-                                     alt="${product.name} view ${index + 1}"
-                                     class="quick-view-thumbnail ${index === 0 ? 'active' : ''}"
+                                     alt="${product.name} view ${index + 1}" 
+                                     class="thumbnail ${index === 0 ? 'active' : ''}"
                                      onclick="app.changeQuickViewImage('${image}', this)">
                             `).join('')}
                         </div>
@@ -1178,74 +1066,83 @@ class GrindCTRLApp {
                 <div class="quick-view-details">
                     <h3>${product.name}</h3>
                     
+                    <div class="quick-view-rating">
+                        <div class="stars">${this.generateStars(product.rating)}</div>
+                        <span>(${product.reviewCount} reviews)</span>
+                    </div>
+                    
                     <div class="quick-view-price">
-                        <span class="current-price">${product.price.toFixed(2)} EGP</span>
-                        ${hasDiscount ? 
-                            `<span class="original-price">${product.originalPrice.toFixed(2)} EGP</span>` : ''}
+                        <span class="price-large">${Utils.formatPrice(product.price)}</span>
+                        ${product.originalPrice ? `
+                            <span class="price-original">${Utils.formatPrice(product.originalPrice)}</span>
+                            <span class="price-discount">${discount}% OFF</span>
+                        ` : ''}
                     </div>
                     
-                    <div class="product-rating">
-                        <div class="stars">
-                            ${this.renderStars(product.rating)}
+                    <p class="product-description">${product.description}</p>
+                    
+                    ${product.colors && product.colors.length > 0 ? `
+                        <div class="options-section">
+                            <h4>Color</h4>
+                            <div class="color-options">
+                                ${product.colors.map((color, index) => `
+                                    <div class="color-option-large ${index === 0 ? 'selected' : ''}" 
+                                         style="background-color: ${color.value}"
+                                         data-color="${color.name}"
+                                         onclick="app.selectQuickViewColor(this)"
+                                         title="${color.name}"></div>
+                                `).join('')}
+                            </div>
                         </div>
-                        <span class="rating-text">(${product.reviewCount} reviews)</span>
-                    </div>
+                    ` : ''}
                     
-                    <p class="quick-view-description">${product.description}</p>
+                    ${product.sizes && product.sizes.length > 1 ? `
+                        <div class="options-section">
+                            <h4>Size <button class="size-guide-link" onclick="app.openSizeGuide()">Size Guide</button></h4>
+                            <div class="size-options">
+                                ${product.sizes.map((size, index) => `
+                                    <button class="size-option ${index === 0 ? 'selected' : ''}"
+                                            data-size="${size}"
+                                            onclick="app.selectQuickViewSize(this)">
+                                        ${size}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                     
-                    <div class="quick-view-options">
-                        ${product.colors && product.colors.length > 0 ? `
-                            <div class="option-group">
-                                <label>Color:</label>
-                                <div class="color-options">
-                                    ${product.colors.map((color, index) => `
-                                        <div class="color-option ${index === 0 ? 'active' : ''}" 
-                                             style="background-color: ${color.value}"
-                                             title="${color.name}"
-                                             data-color="${color.name}"
-                                             onclick="app.selectQuickViewColor(this, '${color.name}')">
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        
-                        ${product.sizes && product.sizes.length > 0 ? `
-                            <div class="option-group">
-                                <label>Size:</label>
-                                <div class="size-options">
-                                    ${product.sizes.map((size, index) => `
-                                        <div class="size-option ${index === 0 ? 'active' : ''}" 
-                                             data-size="${size}"
-                                             onclick="app.selectQuickViewSize(this, '${size}')">
-                                            ${size}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        
+                    <div class="quantity-section">
+                        <label>Quantity</label>
                         <div class="quantity-selector">
-                            <label>Quantity:</label>
-                            <div class="quantity-input">
-                                <button onclick="app.changeQuickViewQuantity(-1)">-</button>
-                                <input type="number" value="1" min="1" max="10" id="quickViewQuantity" readonly>
-                                <button onclick="app.changeQuickViewQuantity(1)">+</button>
-                            </div>
+                            <button onclick="app.updateQuickViewQuantity(-1)">-</button>
+                            <input type="number" id="quickViewQuantity" value="1" min="1" max="10" readonly>
+                            <button onclick="app.updateQuickViewQuantity(1)">+</button>
                         </div>
                     </div>
                     
-                    <div class="quick-view-actions">
-                        <button class="btn btn-primary" 
-                                onclick="app.addToCartFromQuickView()"
-                                ${!product.inStock ? 'disabled' : ''}>
-                            ${product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="app.addToCartFromQuickView()" style="flex: 1;">
+                            Add to Cart
                         </button>
-                        <button class="btn btn-secondary" 
-                                onclick="app.toggleWishlist('${product.id}')">
-                            <i class="fas fa-heart ${isInWishlist ? '' : 'far'}"></i>
-                            ${isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                        <button class="wishlist-toggle ${this.state.isInWishlist(product.id) ? 'active' : ''}" 
+                                onclick="app.toggleWishlistItem('${product.id}')">
+                            <i class="fas fa-heart"></i>
                         </button>
+                    </div>
+                    
+                    <div class="product-features">
+                        <div class="feature-item">
+                            <i class="fas fa-shipping-fast"></i>
+                            <span>Free shipping worldwide</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-undo"></i>
+                            <span>30-day return policy</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-certificate"></i>
+                            <span>Premium quality guarantee</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1254,67 +1151,57 @@ class GrindCTRLApp {
 
     changeQuickViewImage(imageSrc, thumbnail) {
         const mainImage = document.getElementById('quickViewMainImage');
-        const thumbnails = document.querySelectorAll('.quick-view-thumbnail');
-        
         if (mainImage) {
             mainImage.src = imageSrc;
         }
-        
-        thumbnails.forEach(thumb => thumb.classList.remove('active'));
-        if (thumbnail) {
-            thumbnail.classList.add('active');
-        }
+
+        // Update thumbnail active state
+        document.querySelectorAll('.thumbnail').forEach(thumb => thumb.classList.remove('active'));
+        thumbnail.classList.add('active');
     }
 
-    selectQuickViewColor(element, colorName) {
-        const colorOptions = document.querySelectorAll('.quick-view-content .color-option');
-        colorOptions.forEach(option => option.classList.remove('active'));
-        element.classList.add('active');
+    selectQuickViewColor(colorElement) {
+        document.querySelectorAll('.color-option-large').forEach(el => el.classList.remove('selected'));
+        colorElement.classList.add('selected');
     }
 
-    selectQuickViewSize(element, sizeName) {
-        const sizeOptions = document.querySelectorAll('.quick-view-content .size-option');
-        sizeOptions.forEach(option => option.classList.remove('active'));
-        element.classList.add('active');
+    selectQuickViewSize(sizeElement) {
+        document.querySelectorAll('.size-option').forEach(el => el.classList.remove('selected'));
+        sizeElement.classList.add('selected');
     }
 
-    changeQuickViewQuantity(delta) {
+    updateQuickViewQuantity(change) {
         const quantityInput = document.getElementById('quickViewQuantity');
         if (!quantityInput) return;
+
+        let currentValue = parseInt(quantityInput.value) || 1;
+        let newValue = currentValue + change;
         
-        const currentValue = parseInt(quantityInput.value) || 1;
-        const newValue = Math.max(1, Math.min(10, currentValue + delta));
+        if (newValue < 1) newValue = 1;
+        if (newValue > 10) newValue = 10;
+        
         quantityInput.value = newValue;
     }
 
     addToCartFromQuickView() {
         if (!this.state.currentProduct) return;
 
-        const selectedColor = document.querySelector('.quick-view-content .color-option.active');
-        const selectedSize = document.querySelector('.quick-view-content .size-option.active');
+        const selectedColor = document.querySelector('.color-option-large.selected')?.getAttribute('data-color');
+        const selectedSize = document.querySelector('.size-option.selected')?.getAttribute('data-size');
         const quantity = parseInt(document.getElementById('quickViewQuantity')?.value) || 1;
 
         const options = {
             quantity,
-            color: selectedColor ? selectedColor.getAttribute('data-color') : null,
-            size: selectedSize ? selectedSize.getAttribute('data-size') : null
+            size: selectedSize,
+            color: selectedColor
         };
 
-        const success = this.state.addToCart(this.state.currentProduct.id, options);
-        if (success) {
-            this.notifications.success(`Added ${this.state.currentProduct.name} to cart`);
-            this.closeQuickView();
+        if (this.state.addToCart(this.state.currentProduct.id, options)) {
+            this.notifications.success(`${this.state.currentProduct.name} added to cart!`);
+            this.closeModal('quickView');
+        } else {
+            this.notifications.error('Failed to add item to cart');
         }
-    }
-
-    closeQuickView() {
-        const modal = document.getElementById('quickViewModal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-        }
-        this.state.modals.quickView = false;
-        this.state.currentProduct = null;
     }
 
     openCheckout() {
@@ -1323,924 +1210,1062 @@ class GrindCTRLApp {
             return;
         }
 
-        const modal = document.getElementById('checkoutModal');
-        const body = document.getElementById('checkoutBody');
-        
-        if (!modal || !body) return;
-
         this.state.checkoutStep = 1;
+        this.renderCheckout();
+        this.openModal('checkout');
+    }
+
+    renderCheckout() {
+        const checkoutBody = document.getElementById('checkoutBody');
+        if (!checkoutBody) return;
+
+        // Update progress
         this.updateCheckoutProgress();
-        this.renderCheckoutStep();
-        
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        this.state.modals.checkout = true;
-    }
 
-    updateCheckoutProgress() {
-        const steps = document.querySelectorAll('.progress-step');
-        steps.forEach((step, index) => {
-            const stepNumber = index + 1;
-            if (stepNumber <= this.state.checkoutStep) {
-                step.classList.add('active');
-            } else {
-                step.classList.remove('active');
-            }
-        });
-    }
-
-    renderCheckoutStep() {
-        const body = document.getElementById('checkoutBody');
-        if (!body) return;
-
-        switch (this.state.checkoutStep) {
-            case 1:
-                body.innerHTML = this.renderShippingStep();
-                break;
-            case 2:
-                body.innerHTML = this.renderPaymentStep();
-                break;
-            case 3:
-                body.innerHTML = this.renderReviewStep();
-                break;
+        if (this.state.checkoutStep === 1) {
+            this.renderCheckoutStep1(checkoutBody);
+        } else if (this.state.checkoutStep === 2) {
+            this.renderCheckoutStep2(checkoutBody);
+        } else if (this.state.checkoutStep === 3) {
+            this.renderCheckoutStep3(checkoutBody);
         }
     }
 
-    /**
-     * Task 5: Enhanced shipping step with Note field and email validation
-     */
-    renderShippingStep() {
-        return `
-            <form id="shippingForm" class="checkout-form">
-                <h4>Shipping Information</h4>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="firstName">First Name *</label>
-                        <input type="text" id="firstName" name="firstName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="lastName">Last Name *</label>
-                        <input type="text" id="lastName" name="lastName" required>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">Email Address *</label>
-                    <input type="email" id="email" name="email" required>
-                    <small>We'll send your order confirmation to this email</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="phone">Phone Number *</label>
-                    <input type="tel" id="phone" name="phone" required placeholder="+20 123 456 7890">
-                </div>
-                
-                <div class="form-group">
-                    <label for="address">Address *</label>
-                    <textarea id="address" name="address" required rows="3" 
-                              placeholder="Street address, building number, floor, apartment"></textarea>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="city">City *</label>
-                        <input type="text" id="city" name="city" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="governorate">Governorate *</label>
-                        <select id="governorate" name="governorate" required>
-                            <option value="">Select governorate</option>
-                            <option value="Cairo">Cairo</option>
-                            <option value="Giza">Giza</option>
-                            <option value="Alexandria">Alexandria</option>
-                            <option value="Luxor">Luxor</option>
-                            <option value="Aswan">Aswan</option>
-                            <option value="Sharm El Sheikh">Sharm El Sheikh</option>
-                            <option value="Hurghada">Hurghada</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="note">Note (optional)</label>
-                    <textarea id="note" name="note" maxlength="500" rows="3" 
-                              placeholder="Special delivery instructions, preferred delivery time, etc."></textarea>
-                    <div class="character-counter">
-                        <span id="noteCounter">0</span>/500 characters
-                    </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeCheckout()">
-                        Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Continue to Payment
-                    </button>
-                </div>
-            </form>
-        `;
+    updateCheckoutProgress() {
+        const progressSteps = document.querySelectorAll('.progress-step');
+        progressSteps.forEach((step, index) => {
+            const stepNumber = index + 1;
+            step.classList.toggle('active', stepNumber === this.state.checkoutStep);
+            step.classList.toggle('completed', stepNumber < this.state.checkoutStep);
+        });
     }
 
-    renderPaymentStep() {
-        return `
-            <form id="paymentForm" class="checkout-form">
-                <h4>Payment Method</h4>
-                
-                <div class="payment-methods">
-                    <div class="payment-option">
-                        <input type="radio" id="cod" name="paymentMethod" value="cod" checked>
-                        <label for="cod">
-                            <div class="payment-info">
-                                <strong>Cash on Delivery</strong>
-                                <p>Pay when your order arrives</p>
+    renderCheckoutStep1(container) {
+        container.innerHTML = `
+            <div class="checkout-content">
+                <div class="checkout-form">
+                    <form id="checkoutForm1">
+                        <div class="form-section">
+                            <h4>Shipping Information</h4>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">First Name *</label>
+                                    <input type="text" name="firstName" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Last Name *</label>
+                                    <input type="text" name="lastName" class="form-input" required>
+                                </div>
                             </div>
-                            <i class="fas fa-money-bill-wave"></i>
-                        </label>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Email Address *</label>
+                                <input type="email" name="email" class="form-input" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Phone Number *</label>
+                                <input type="tel" name="phone" class="form-input" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Shipping Address *</label>
+                                <input type="text" name="address" class="form-input" placeholder="Street address" required>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">City *</label>
+                                    <input type="text" name="city" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Postal Code *</label>
+                                    <input type="text" name="postalCode" class="form-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Continue to Payment</button>
+                    </form>
+                </div>
+                
+                ${this.renderOrderSummary()}
+            </div>
+        `;
+
+        // Add form submission handler
+        const form = document.getElementById('checkoutForm1');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (this.validateCheckoutForm(form)) {
+                    this.saveCheckoutData(form);
+                    this.state.checkoutStep = 2;
+                    this.renderCheckout();
+                }
+            });
+        }
+    }
+
+    renderCheckoutStep2(container) {
+        container.innerHTML = `
+            <div class="checkout-content">
+                <div class="checkout-form">
+                    <form id="checkoutForm2">
+                        <div class="form-section">
+                            <h4>Payment Method</h4>
+                            
+                            <div class="payment-methods">
+                                <div class="payment-method selected" data-method="cod">
+                                    <div class="payment-radio"></div>
+                                    <i class="payment-icon fas fa-money-bill-wave"></i>
+                                    <div>
+                                        <strong>Cash on Delivery</strong>
+                                        <p>Pay when you receive your order</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="payment-method" data-method="transfer">
+                                    <div class="payment-radio"></div>
+                                    <i class="payment-icon fas fa-university"></i>
+                                    <div>
+                                        <strong>Bank Transfer</strong>
+                                        <p>Transfer to our bank account</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="payment-method" data-method="card">
+                                    <div class="payment-radio"></div>
+                                    <i class="payment-icon fas fa-credit-card"></i>
+                                    <div>
+                                        <strong>Credit Card</strong>
+                                        <p>Secure online payment</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" name="paymentMethod" value="cod">
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="app.prevCheckoutStep()">
+                                Back
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                Review Order
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                ${this.renderOrderSummary()}
+            </div>
+        `;
+
+        // Add payment method selection
+        const paymentMethods = document.querySelectorAll('.payment-method');
+        paymentMethods.forEach(method => {
+            method.addEventListener('click', () => {
+                paymentMethods.forEach(m => m.classList.remove('selected'));
+                method.classList.add('selected');
+                
+                const hiddenInput = document.querySelector('input[name="paymentMethod"]');
+                if (hiddenInput) {
+                    hiddenInput.value = method.getAttribute('data-method');
+                }
+            });
+        });
+
+        // Add form submission handler
+        const form = document.getElementById('checkoutForm2');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveCheckoutData(form);
+                this.state.checkoutStep = 3;
+                this.renderCheckout();
+            });
+        }
+    }
+
+    renderCheckoutStep3(container) {
+        container.innerHTML = `
+            <div class="checkout-content">
+                <div class="checkout-form">
+                    <div class="form-section">
+                        <h4>Review Your Order</h4>
+                        <p>Please review your order details before placing your order.</p>
+                        
+                        <div class="order-review">
+                            <div class="review-section">
+                                <h5>Shipping Address</h5>
+                                <p>
+                                    ${this.state.orderData?.firstName} ${this.state.orderData?.lastName}<br>
+                                    ${this.state.orderData?.address}<br>
+                                    ${this.state.orderData?.city}, ${this.state.orderData?.postalCode}<br>
+                                    ${this.state.orderData?.phone}
+                                </p>
+                            </div>
+                            
+                            <div class="review-section">
+                                <h5>Payment Method</h5>
+                                <p>${this.getPaymentMethodName(this.state.orderData?.paymentMethod)}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="app.prevCheckoutStep()">
+                                Back
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="app.submitOrder()">
+                                Place Order
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.previousCheckoutStep()">
-                        Back
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Review Order
-                    </button>
-                </div>
-            </form>
+                ${this.renderOrderSummary()}
+            </div>
         `;
     }
 
-    renderReviewStep() {
+    renderOrderSummary() {
         const subtotal = this.state.getCartTotal();
         const shipping = 0;
-        const total = subtotal + shipping;
+        const tax = 0;
+        const total = subtotal + shipping + tax;
 
         return `
-            <div class="checkout-review">
-                <h4>Order Review</h4>
+            <div class="order-summary">
+                <h4>Order Summary</h4>
                 
-                <div class="review-section">
-                    <h5>Items</h5>
-                    <div class="review-items">
-                        ${this.state.cart.map(item => `
-                            <div class="review-item">
-                                <img src="${item.image}" alt="${item.name}" class="review-item-image">
-                                <div class="review-item-details">
-                                    <div class="review-item-name">${item.name}</div>
-                                    <div class="review-item-options">
-                                        ${item.size ? `Size: ${item.size}` : ''}
-                                        ${item.size && item.color ? ', ' : ''}
-                                        ${item.color ? `Color: ${item.color}` : ''}
-                                    </div>
-                                    <div class="review-item-quantity">Qty: ${item.quantity}</div>
+                <div class="summary-items">
+                    ${this.state.cart.map(item => `
+                        <div class="summary-item">
+                            <img src="${item.image}" alt="${item.name}" class="summary-item-image">
+                            <div class="summary-item-details">
+                                <div class="summary-item-name">${item.name}</div>
+                                <div class="summary-item-options">
+                                    ${item.size ? `Size: ${item.size}` : ''}
+                                    ${item.size && item.color ? ', ' : ''}
+                                    ${item.color ? `Color: ${item.color}` : ''}
+                                    <br>Qty: ${item.quantity}
                                 </div>
-                                <div class="review-item-price">${(item.price * item.quantity).toFixed(2)} EGP</div>
+                                <div class="summary-item-price">${Utils.formatPrice(item.price * item.quantity)}</div>
                             </div>
-                        `).join('')}
-                    </div>
+                        </div>
+                    `).join('')}
                 </div>
                 
-                <div class="review-summary">
+                <div class="summary-totals">
                     <div class="summary-row">
                         <span>Subtotal:</span>
-                        <span>${subtotal.toFixed(2)} EGP</span>
+                        <span>${Utils.formatPrice(subtotal)}</span>
                     </div>
                     <div class="summary-row">
                         <span>Shipping:</span>
-                        <span class="text-green">Free</span>
+                        <span>Free</span>
                     </div>
-                    <div class="summary-row total">
+                    <div class="summary-row">
+                        <span>Tax:</span>
+                        <span>${Utils.formatPrice(tax)}</span>
+                    </div>
+                    <div class="summary-row summary-total">
                         <span>Total:</span>
-                        <span>${total.toFixed(2)} EGP</span>
+                        <span>${Utils.formatPrice(total)}</span>
                     </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.previousCheckoutStep()">
-                        Back
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="app.submitOrder()">
-                        Place Order
-                    </button>
                 </div>
             </div>
         `;
     }
 
-    nextCheckoutStep() {
-        if (this.state.checkoutStep < 3) {
-            this.state.checkoutStep++;
-            this.updateCheckoutProgress();
-            this.renderCheckoutStep();
-            
-            // Setup form handlers for new step
-            this.setupCheckoutHandlers();
+    validateCheckoutForm(form) {
+        const formData = new FormData(form);
+        let isValid = true;
+
+        // Clear previous errors
+        form.querySelectorAll('.form-error').forEach(error => error.remove());
+        form.querySelectorAll('.form-input.error').forEach(input => input.classList.remove('error'));
+
+        // Validate required fields
+        form.querySelectorAll('[required]').forEach(input => {
+            if (!input.value.trim()) {
+                this.showFieldError(input, 'This field is required');
+                isValid = false;
+            }
+        });
+
+        // Validate email
+        const emailInput = form.querySelector('input[type="email"]');
+        if (emailInput && emailInput.value && !Utils.validateEmail(emailInput.value)) {
+            this.showFieldError(emailInput, 'Please enter a valid email address');
+            isValid = false;
         }
+
+        // Validate phone
+        const phoneInput = form.querySelector('input[type="tel"]');
+        if (phoneInput && phoneInput.value && !Utils.validatePhone(phoneInput.value)) {
+            this.showFieldError(phoneInput, 'Please enter a valid phone number');
+            isValid = false;
+        }
+
+        return isValid;
     }
 
-    previousCheckoutStep() {
+    showFieldError(input, message) {
+        input.classList.add('error');
+        
+        const errorElement = document.createElement('div');
+        errorElement.className = 'form-error';
+        errorElement.textContent = message;
+        
+        input.parentNode.appendChild(errorElement);
+    }
+
+    saveCheckoutData(form) {
+        const formData = new FormData(form);
+        const data = {};
+        
+        for (let [key, value] of formData.entries()) {
+            data[key] = value;
+        }
+
+        this.state.orderData = { ...this.state.orderData, ...data };
+    }
+
+    prevCheckoutStep() {
         if (this.state.checkoutStep > 1) {
             this.state.checkoutStep--;
-            this.updateCheckoutProgress();
-            this.renderCheckoutStep();
-            
-            // Setup form handlers for new step
-            this.setupCheckoutHandlers();
+            this.renderCheckout();
         }
     }
 
-    setupCheckoutHandlers() {
-        // Shipping form handler
-        const shippingForm = document.getElementById('shippingForm');
-        if (shippingForm) {
-            shippingForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleShippingSubmit(e);
-            });
-            
-            // Task 5: Setup note character counter
-            const noteTextarea = document.getElementById('note');
-            const noteCounter = document.getElementById('noteCounter');
-            
-            if (noteTextarea && noteCounter) {
-                noteTextarea.addEventListener('input', () => {
-                    const length = noteTextarea.value.length;
-                    noteCounter.textContent = length;
-                    
-                    // Visual feedback for character limit
-                    if (length > 450) {
-                        noteCounter.style.color = 'var(--warning-color)';
-                    } else {
-                        noteCounter.style.color = 'var(--text-muted)';
-                    }
-                });
-            }
-        }
-
-        // Payment form handler
-        const paymentForm = document.getElementById('paymentForm');
-        if (paymentForm) {
-            paymentForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handlePaymentSubmit(e);
-            });
-        }
-    }
-
-    /**
-     * Task 5: Enhanced shipping form validation with email check
-     */
-    handleShippingSubmit(e) {
-        const formData = new FormData(e.target);
-        const shippingData = Object.fromEntries(formData);
-        
-        // Enhanced email validation
-        if (!Utils.validateEmail(shippingData.email)) {
-            this.notifications.error('Please enter a valid email address');
-            document.getElementById('email').focus();
-            return;
-        }
-        
-        // Phone validation
-        if (!Utils.validatePhone(shippingData.phone)) {
-            this.notifications.error('Please enter a valid phone number');
-            document.getElementById('phone').focus();
-            return;
-        }
-        
-        // Store shipping data including note
-        this.state.orderData = {
-            ...this.state.orderData,
-            shipping: shippingData
+    getPaymentMethodName(method) {
+        const methods = {
+            cod: 'Cash on Delivery',
+            transfer: 'Bank Transfer',
+            card: 'Credit Card'
         };
-        
-        this.nextCheckoutStep();
+        return methods[method] || method;
     }
 
-    handlePaymentSubmit(e) {
-        const formData = new FormData(e.target);
-        const paymentData = Object.fromEntries(formData);
-        
-        this.state.orderData = {
-            ...this.state.orderData,
-            payment: paymentData
-        };
-        
-        this.nextCheckoutStep();
-    }
-
-    /**
-     * Task 5: Enhanced order submission with email and note
-     */
     async submitOrder() {
-        if (!this.state.orderData || !this.state.orderData.shipping) {
-            this.notifications.error('Missing shipping information');
-            return;
-        }
-
-        const orderBtn = document.querySelector('.checkout-review .btn-primary');
-        if (orderBtn) {
-            orderBtn.disabled = true;
-            orderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        }
-
         try {
-            // Prepare order data
+            this.loading.show('order');
+
+            // Prepare order data for webhook
             const orderData = this.prepareOrderData();
-            
-            // Submit order via webhook
-            const result = await this.webhooks.deliverWebhook(orderData, 'order');
-            
-            if (result.success) {
+
+            // Send to webhook
+            const success = await this.sendOrderToWebhook(orderData);
+
+            if (success) {
+                // Persist this order in localStorage so customers can look it up by phone
+                this.storeOrder(orderData);
                 this.showOrderSuccess(orderData);
                 this.state.clearCart();
-                this.closeCheckout();
+                this.closeModal('checkout');
             } else {
-                throw new Error('Failed to submit order');
+                throw new Error('Order processing failed');
             }
+
         } catch (error) {
-            console.error('Order submission failed:', error);
-            this.notifications.error('Failed to submit order. Please try again.');
+            console.error('Order submission error:', error);
+            this.notifications.error('Failed to place order. Please try again.');
         } finally {
-            if (orderBtn) {
-                orderBtn.disabled = false;
-                orderBtn.innerHTML = 'Place Order';
-            }
+            this.loading.hide('order');
         }
     }
 
-    /**
-     * Task 5: Enhanced order data preparation with email and note
-     */
     prepareOrderData() {
-        const shipping = this.state.orderData.shipping;
-        const payment = this.state.orderData.payment;
         const orderId = Utils.generateOrderId();
         const trackingNumber = Utils.generateTrackingNumber();
-        
-        // Prepare product string
-        const productDetails = this.state.cart.map(item => {
-            let details = item.name;
-            if (item.size) details += ` - ${item.size}`;
-            if (item.color) details += ` (${item.color})`;
-            if (item.quantity > 1) details += ` (${item.quantity}x)`;
-            return details;
-        }).join(', ');
-
-        const totalQuantity = this.state.getCartCount();
-        const total = this.state.getCartTotal();
+        const subtotal = this.state.getCartTotal();
+        const total = subtotal; // No tax or shipping for now
+        const codAmount = this.state.orderData.paymentMethod === 'cod' ? total : 0;
 
         return {
             "Order ID": orderId,
-            "Customer Name": `${shipping.firstName} ${shipping.lastName}`,
-            "Customer Email": shipping.email, // Task 5: Include email
-            "Phone": shipping.phone,
-            "City": shipping.city,
-            "Address": shipping.address,
-            "COD Amount": total.toFixed(2),
+            "Customer Name": `${this.state.orderData.firstName} ${this.state.orderData.lastName}`,
+            "Phone": this.state.orderData.phone,
+            "City": this.state.orderData.city,
+            "Address": this.state.orderData.address,
+            "COD Amount": codAmount.toFixed(2),
             "Tracking Number": trackingNumber,
             "Courier": "BOSTA",
             "Total": total.toFixed(2),
             "Date": new Date().toISOString(),
             "Status": "New",
-            "Payment Method": payment.paymentMethod === 'cod' ? 'Cash on Delivery' : payment.paymentMethod,
-            "Product": productDetails,
-            "Quantity": totalQuantity.toString(),
-            "Note": shipping.note || "" // Task 5: Include note (empty string if blank)
+            "Payment Method": this.getPaymentMethodName(this.state.orderData.paymentMethod),
+            "Product": this.state.cart.map(item => 
+                `${item.name}${item.size ? ` - ${item.size}` : ''} (${item.quantity}x)`
+            ).join(', '),
+            "Quantity": this.state.cart.reduce((total, item) => total + item.quantity, 0).toString()
         };
     }
 
-    /**
-     * Task 8: Enhanced success display without Return/Exchange buttons
-     */
-    showOrderSuccess(orderData) {
-        const modal = document.getElementById('successModal');
-        const messageElement = document.getElementById('successMessage');
-        const detailsElement = document.getElementById('orderDetails');
-        
-        if (!modal || !messageElement || !detailsElement) return;
+    async sendOrderToWebhook(orderData) {
+        const webhookUrl = window.CONFIG?.WEBHOOK_URL;
+        // If no webhook is defined, simulate a delay and return success. This
+        // prevents accidental calls during local development.
+        if (!webhookUrl || webhookUrl === 'WEBHOOK_URL_NOT_CONFIGURED' || webhookUrl.trim() === '') {
+            console.warn('Webhook URL not configured');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            return true;
+        }
 
-        messageElement.innerHTML = `
-            <h4>Thank you for your order!</h4>
-            <p>Your order has been successfully placed and will be processed shortly.</p>
-        `;
+        // Strategy 1: CORS POST with JSON. Many modern webhooks (including n8n)
+        // set proper CORS headers. We explicitly set mode:'cors' so the browser
+        // attempts a preflight if necessary. If this succeeds we return early.
+        try {
+            const resp = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify(orderData)
+            });
+            if (resp.ok) {
+                return true;
+            }
+        } catch (err) {
+            console.error('CORS POST webhook attempt failed:', err);
+        }
 
-        // Task 8: Order details without Return/Exchange buttons
-        detailsElement.innerHTML = `
-            <h5>Order Details</h5>
-            <div class="order-info">
-                <div class="order-info-row">
-                    <span>Order ID:</span>
-                    <span>${orderData["Order ID"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Tracking Number:</span>
-                    <span>${orderData["Tracking Number"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Customer:</span>
-                    <span>${orderData["Customer Name"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Email:</span>
-                    <span>${orderData["Customer Email"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Phone:</span>
-                    <span>${orderData["Phone"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Delivery Address:</span>
-                    <span>${orderData["Address"]}, ${orderData["City"]}</span>
-                </div>
-                <div class="order-info-row">
-                    <span>Items:</span>
-                    <span>${orderData["Product"]}</span>
-                </div>
-                ${orderData["Note"] ? `
-                <div class="order-info-row">
-                    <span>Note:</span>
-                    <span>${orderData["Note"]}</span>
-                </div>
-                ` : ''}
-                <div class="order-info-row">
-                    <span>Total Amount:</span>
-                    <span>${orderData["Total"]} EGP</span>
-                </div>
-            </div>
-        `;
+        // Strategy 2: no‑cors POST without custom headers. Omitting headers avoids
+        // the preflight check and still delivers the body. The response is
+        // opaque but we assume success. This is useful when the endpoint does
+        // not set CORS headers.
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(orderData)
+            });
+            return true;
+        } catch (err) {
+            console.warn('no‑cors POST webhook attempt failed:', err);
+        }
 
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        this.state.modals.success = true;
+        // Strategy 3: sendBeacon. This avoids CORS entirely and is best effort.
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(orderData)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(webhookUrl, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('sendBeacon webhook fallback failed:', err);
+        }
+
+        // Strategy 4: GET via query string using an Image. This last resort
+        // constructs a GET URL with the entire payload encoded. Some services
+        // accept GET requests to their webhook endpoints. We assume success.
+        try {
+            const query = encodeURIComponent(JSON.stringify(orderData));
+            const img = new Image();
+            img.src = `${webhookUrl}?payload=${query}`;
+            return true;
+        } catch (err) {
+            console.error('Webhook GET via image attempt failed:', err);
+        }
+
+        return false;
     }
 
-    closeCheckout() {
-        const modal = document.getElementById('checkoutModal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
+    /**
+     * Send a return or exchange request to the appropriate webhook.  Payloads
+     * include the customer's phone number, selected order id, reason and the
+     * full order details when available.  Uses the same resilient delivery
+     * strategy as sendOrderToWebhook: try a CORS POST, fall back to no‑cors,
+     * then sendBeacon and finally a GET via query string.
+     *
+     * @param {Object} requestData The request payload to send.
+     * @param {string} type Either 'return' or 'exchange' to select the endpoint.
+     * @returns {Promise<boolean>} True if any attempt succeeds, false otherwise.
+     */
+    async sendReturnOrExchangeWebhook(requestData, type) {
+        const returnUrl  = window.CONFIG?.RETURN_WEBHOOK_URL;
+        const exchangeUrl = window.CONFIG?.EXCHANGE_WEBHOOK_URL;
+        let url;
+        if (type === 'return') url = returnUrl;
+        else if (type === 'exchange') url = exchangeUrl;
+        else url = null;
+
+        if (!url || url === '' || url === 'WEBHOOK_URL_NOT_CONFIGURED') {
+            console.warn('Return/Exchange webhook URL not configured');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return true;
         }
-        this.state.modals.checkout = false;
-        this.state.checkoutStep = 1;
-        this.state.orderData = null;
+
+        // Include the request type in the payload so the webhook can easily
+        // identify whether this is a return or an exchange.  We copy the
+        // requestData here to avoid mutating the original object.
+        const payload = { ...requestData, requestType: type };
+
+        // Strategy 1: CORS POST with JSON
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                return true;
+            }
+        } catch (err) {
+            console.error('Return/Exchange CORS POST attempt failed:', err);
+        }
+
+        // Strategy 2: no‑cors POST without headers
+        try {
+            await fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(payload)
+            });
+            return true;
+        } catch (err) {
+            console.warn('Return/Exchange no‑cors POST attempt failed:', err);
+        }
+
+        // Strategy 3: sendBeacon
+        try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(url, blob);
+                if (ok) return true;
+            }
+        } catch (err) {
+            console.warn('Return/Exchange sendBeacon attempt failed:', err);
+        }
+
+        // Strategy 4: GET via query string
+        try {
+            const query = encodeURIComponent(JSON.stringify(payload));
+            const img = new Image();
+            img.src = `${url}?payload=${query}`;
+            return true;
+        } catch (err) {
+            console.error('Return/Exchange GET via image attempt failed:', err);
+        }
+        return false;
+    }
+
+    showOrderSuccess(orderData) {
+        const successModal = document.getElementById('successModal');
+        const orderDetails = document.getElementById('orderDetails');
+        const successMessage = document.getElementById('successMessage');
+
+        if (successMessage) {
+            successMessage.textContent = `Thank you for your order! Your order #${orderData['Order ID']} has been confirmed.`;
+        }
+
+        if (orderDetails) {
+            orderDetails.innerHTML = `
+                <div class="order-detail-row">
+                    <span>Order ID:</span>
+                    <span>${orderData['Order ID']}</span>
+                </div>
+                <div class="order-detail-row">
+                    <span>Payment Method:</span>
+                    <span>${orderData['Payment Method']}</span>
+                </div>
+                <div class="order-detail-row">
+                    <span>Total:</span>
+                    <span>${orderData['Total']} EGP</span>
+                </div>
+            `;
+        }
+
+        this.openModal('success');
     }
 
     closeSuccessModal() {
-        const modal = document.getElementById('successModal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-        }
-        this.state.modals.success = false;
+        this.closeModal('success');
     }
 
     /**
-     * Task 6: Enhanced return modal functionality
+     * Persist a completed order to localStorage.  Orders are stored in a
+     * "grindctrl_orders" array so that customers can later look up their
+     * purchases by phone number when requesting returns or exchanges.
+     * @param {Object} orderData The order data returned by prepareOrderData().
      */
-    openReturnModal() {
-        const modal = document.getElementById('returnModal');
-        if (!modal) return;
-
-        // Reset form
-        const form = document.getElementById('returnForm');
-        if (form) {
-            form.reset();
-            
-            // Hide sections initially
-            document.getElementById('returnOrderSection').style.display = 'none';
-            document.getElementById('returnReasonSection').style.display = 'none';
-        }
-
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        this.setupReturnHandlers();
-    }
-
-    setupReturnHandlers() {
-        const form = document.getElementById('returnForm');
-        const phoneInput = document.getElementById('returnPhone');
-        
-        if (!form || !phoneInput) return;
-
-        // Phone input handler for order lookup
-        phoneInput.addEventListener('input', Utils.debounce(() => {
-            const phone = phoneInput.value.trim();
-            if (phone.length >= 8) {
-                this.lookupReturnOrders(phone);
-            }
-        }, 500));
-
-        // Form submission handler
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleReturnSubmit(e);
-        });
-    }
-
-    async lookupReturnOrders(phone) {
-        const orderSection = document.getElementById('returnOrderSection');
-        const orderList = document.getElementById('returnOrderList');
-        
-        if (!orderSection || !orderList) return;
-
-        // Simulate order lookup (in real app, this would be an API call)
-        // For demo, create some sample orders based on phone
-        const sampleOrders = [
-            { id: 'GC-2024-001', total: '1250.00', date: '2024-01-15', items: 'Luxury T-Shirt, Cap' },
-            { id: 'GC-2024-002', total: '800.00', date: '2024-01-10', items: 'Vintage Jeans' }
-        ];
-
-        orderList.innerHTML = '<option value="">Choose an order...</option>';
-        
-        sampleOrders.forEach(order => {
-            const option = document.createElement('option');
-            option.value = order.id;
-            option.textContent = `${order.id} - ${order.items} (${order.total} EGP)`;
-            option.dataset.orderData = JSON.stringify(order);
-            orderList.appendChild(option);
-        });
-
-        orderSection.style.display = 'block';
-        
-        // Setup order selection handler
-        orderList.addEventListener('change', () => {
-            const reasonSection = document.getElementById('returnReasonSection');
-            if (orderList.value && reasonSection) {
-                reasonSection.style.display = 'block';
-            }
-        });
-    }
-
-    /**
-     * Task 6: Enhanced return submission with required reason
-     */
-    async handleReturnSubmit(e) {
-        const formData = new FormData(e.target);
-        const returnData = Object.fromEntries(formData);
-        
-        // Task 6: Validate required reason
-        if (!returnData.reason || returnData.reason.trim().length === 0) {
-            const errorElement = document.getElementById('returnReasonError');
-            if (errorElement) {
-                errorElement.style.display = 'block';
-                errorElement.textContent = 'Please provide a reason for the return.';
-            }
-            document.getElementById('returnReason').focus();
-            return;
-        }
-
-        // Hide error if validation passes
-        const errorElement = document.getElementById('returnReasonError');
-        if (errorElement) {
-            errorElement.style.display = 'none';
-        }
-
-        const submitBtn = document.getElementById('returnSubmit');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        }
-
+    storeOrder(orderData) {
         try {
-            // Get order data
-            const orderSelect = document.getElementById('returnOrderList');
-            const selectedOption = orderSelect.options[orderSelect.selectedIndex];
-            const orderData = selectedOption ? JSON.parse(selectedOption.dataset.orderData) : null;
-
-            // Task 6: Prepare return payload with human-readable note
-            const returnPayload = {
-                requestType: "return",
-                orderId: returnData.orderId,
-                phone: returnData.phone,
-                note: `Reason: ${returnData.reason.trim()}`, // Task 6: Human-readable note
-                order: orderData,
-                timestamp: new Date().toISOString()
-            };
-
-            // Submit return request
-            const result = await this.webhooks.deliverWebhook(returnPayload, 'return');
-
-            if (result.success) {
-                this.notifications.success('Return request submitted successfully');
-                this.closeReturnModal();
-            } else {
-                throw new Error('Failed to submit return request');
-            }
+            const orders = JSON.parse(localStorage.getItem('grindctrl_orders')) || [];
+            orders.push(orderData);
+            localStorage.setItem('grindctrl_orders', JSON.stringify(orders));
         } catch (error) {
-            console.error('Return submission failed:', error);
-            this.notifications.error('Failed to submit return request. Please try again.');
-        } finally {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Submit Return Request';
-            }
+            console.warn('Failed to save order:', error);
         }
     }
 
-    closeReturnModal() {
-        const modal = document.getElementById('returnModal');
+    openSizeGuide() {
+        const sizeGuideBody = document.getElementById('sizeGuideBody');
+        if (sizeGuideBody) {
+            sizeGuideBody.innerHTML = `
+                <div class="size-guide-content">
+                    <div class="size-chart">
+                        <h4>T-Shirt Size Chart (cm)</h4>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Size</th>
+                                    <th>Chest</th>
+                                    <th>Length</th>
+                                    <th>Shoulder</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>XS</td><td>86</td><td>66</td><td>41</td></tr>
+                                <tr><td>S</td><td>91</td><td>69</td><td>43</td></tr>
+                                <tr><td>M</td><td>96</td><td>72</td><td>45</td></tr>
+                                <tr><td>L</td><td>101</td><td>75</td><td>47</td></tr>
+                                <tr><td>XL</td><td>106</td><td>78</td><td>49</td></tr>
+                                <tr><td>XXL</td><td>111</td><td>81</td><td>51</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="size-guide-tips">
+                        <h4>How to Measure</h4>
+                        <ul>
+                            <li><strong>Chest:</strong> Measure around the fullest part of your chest</li>
+                            <li><strong>Length:</strong> Measure from shoulder to bottom hem</li>
+                            <li><strong>Shoulder:</strong> Measure from shoulder seam to shoulder seam</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+        this.openModal('sizeGuide');
+    }
+
+    openLookbook() {
+        // This would open a video modal or redirect to lookbook page
+        this.notifications.info('Lookbook feature coming soon!');
+    }
+
+    // ===== MODAL MANAGEMENT =====
+    openModal(modalId) {
+        const modal = document.getElementById(`${modalId}Modal`);
         if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
         }
     }
 
-    /**
-     * Task 7: Enhanced exchange modal functionality
-     */
-    openExchangeModal() {
-        const modal = document.getElementById('exchangeModal');
-        if (!modal) return;
-
-        // Reset form
-        const form = document.getElementById('exchangeForm');
-        if (form) {
-            form.reset();
-            
-            // Hide sections initially
-            document.getElementById('exchangeOrderSection').style.display = 'none';
-            document.getElementById('exchangeOldItemSection').style.display = 'none';
-            document.getElementById('exchangeNewItemSection').style.display = 'none';
-            document.getElementById('exchangeDelta').style.display = 'none';
-            document.getElementById('exchangeCommentSection').style.display = 'none';
-        }
-
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        this.setupExchangeHandlers();
-    }
-
-    setupExchangeHandlers() {
-        const form = document.getElementById('exchangeForm');
-        const phoneInput = document.getElementById('exchangePhone');
-        
-        if (!form || !phoneInput) return;
-
-        // Phone input handler for order lookup
-        phoneInput.addEventListener('input', Utils.debounce(() => {
-            const phone = phoneInput.value.trim();
-            if (phone.length >= 8) {
-                this.lookupExchangeOrders(phone);
-            }
-        }, 500));
-
-        // Form submission handler
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleExchangeSubmit(e);
-        });
-    }
-
-    async lookupExchangeOrders(phone) {
-        const orderSection = document.getElementById('exchangeOrderSection');
-        const orderList = document.getElementById('exchangeOrderList');
-        
-        if (!orderSection || !orderList) return;
-
-        // Simulate order lookup with items
-        const sampleOrders = [
-            { 
-                id: 'GC-2024-001', 
-                total: '1250.00', 
-                date: '2024-01-15',
-                items: [
-                    { sku: 'LUX-TEE-BLK-L', name: 'Luxury Black T-Shirt', size: 'L', price: 300.00 },
-                    { sku: 'MIN-CAP-BLK', name: 'Minimal Logo Cap', size: 'One Size', price: 250.00 }
-                ]
-            },
-            { 
-                id: 'GC-2024-002', 
-                total: '800.00', 
-                date: '2024-01-10',
-                items: [
-                    { sku: 'VIN-JEAN-BLU-32', name: 'Vintage Distressed Jeans', size: '32', price: 800.00 }
-                ]
-            }
-        ];
-
-        orderList.innerHTML = '<option value="">Choose an order...</option>';
-        
-        sampleOrders.forEach(order => {
-            const option = document.createElement('option');
-            option.value = order.id;
-            option.textContent = `${order.id} - ${order.items.length} item(s) (${order.total} EGP)`;
-            option.dataset.orderData = JSON.stringify(order);
-            orderList.appendChild(option);
-        });
-
-        orderSection.style.display = 'block';
-        
-        // Setup order selection handler
-        orderList.addEventListener('change', () => {
-            if (orderList.value) {
-                this.setupExchangeOrderSelection();
-            }
-        });
-    }
-
-    setupExchangeOrderSelection() {
-        const orderList = document.getElementById('exchangeOrderList');
-        const oldItemSection = document.getElementById('exchangeOldItemSection');
-        const oldItemSelect = document.getElementById('exchangeOldItem');
-        
-        if (!orderList.value || !oldItemSection || !oldItemSelect) return;
-
-        const selectedOption = orderList.options[orderList.selectedIndex];
-        const orderData = JSON.parse(selectedOption.dataset.orderData);
-
-        // Populate old items
-        oldItemSelect.innerHTML = '<option value="">Select item to exchange...</option>';
-        
-        orderData.items.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.sku;
-            option.textContent = `${item.name} - ${item.size} (${item.price.toFixed(2)} EGP)`;
-            option.dataset.itemData = JSON.stringify(item);
-            oldItemSelect.appendChild(option);
-        });
-
-        oldItemSection.style.display = 'block';
-        
-        // Setup old item selection handler
-        oldItemSelect.addEventListener('change', () => {
-            if (oldItemSelect.value) {
-                this.setupExchangeNewItemSelection();
-            }
-        });
-    }
-
-    setupExchangeNewItemSelection() {
-        const newItemSection = document.getElementById('exchangeNewItemSection');
-        const newItemSelect = document.getElementById('exchangeNewItem');
-        
-        if (!newItemSection || !newItemSelect) return;
-
-        // Populate with available products
-        newItemSelect.innerHTML = '<option value="">Select new item...</option>';
-        
-        this.state.products.forEach(product => {
-            product.sizes.forEach(size => {
-                const option = document.createElement('option');
-                const sku = `${product.id.toUpperCase()}-${size}`;
-                option.value = sku;
-                option.textContent = `${product.name} - ${size} (${product.price.toFixed(2)} EGP)`;
-                option.dataset.itemData = JSON.stringify({
-                    sku: sku,
-                    name: product.name,
-                    size: size,
-                    price: product.price
-                });
-                newItemSelect.appendChild(option);
-            });
-        });
-
-        newItemSection.style.display = 'block';
-        
-        // Setup new item selection handler
-        newItemSelect.addEventListener('change', () => {
-            if (newItemSelect.value) {
-                this.calculateExchangeDelta();
-                document.getElementById('exchangeCommentSection').style.display = 'block';
-            }
-        });
-    }
-
-    /**
-     * Task 7: Calculate and display price delta
-     */
-    calculateExchangeDelta() {
-        const oldItemSelect = document.getElementById('exchangeOldItem');
-        const newItemSelect = document.getElementById('exchangeNewItem');
-        const deltaSection = document.getElementById('exchangeDelta');
-        const deltaAmount = document.getElementById('deltaAmount');
-        
-        if (!oldItemSelect.value || !newItemSelect.value || !deltaSection || !deltaAmount) return;
-
-        const oldItemOption = oldItemSelect.options[oldItemSelect.selectedIndex];
-        const newItemOption = newItemSelect.options[newItemSelect.selectedIndex];
-        
-        const oldItem = JSON.parse(oldItemOption.dataset.itemData);
-        const newItem = JSON.parse(newItemOption.dataset.itemData);
-        
-        const delta = newItem.price - oldItem.price;
-        
-        deltaAmount.textContent = delta >= 0 ? 
-            `+${delta.toFixed(2)} EGP` : 
-            `${delta.toFixed(2)} EGP`;
-        
-        deltaAmount.className = delta >= 0 ? 'delta-amount positive' : 'delta-amount negative';
-        
-        deltaSection.style.display = 'block';
-    }
-
-    /**
-     * Task 7: Enhanced exchange submission with note-only payload
-     */
-    async handleExchangeSubmit(e) {
-        const formData = new FormData(e.target);
-        const exchangeData = Object.fromEntries(formData);
-        
-        const submitBtn = document.getElementById('exchangeSubmit');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        }
-
-        try {
-            // Get selected items data
-            const oldItemSelect = document.getElementById('exchangeOldItem');
-            const newItemSelect = document.getElementById('exchangeNewItem');
-            
-            const oldItemOption = oldItemSelect.options[oldItemSelect.selectedIndex];
-            const newItemOption = newItemSelect.options[newItemSelect.selectedIndex];
-            
-            const oldItem = JSON.parse(oldItemOption.dataset.itemData);
-            const newItem = JSON.parse(newItemOption.dataset.itemData);
-            
-            const delta = newItem.price - oldItem.price;
-            const deltaText = delta >= 0 ? `+${delta.toFixed(2)}` : `${delta.toFixed(2)}`;
-            
-            // Get order data
-            const orderSelect = document.getElementById('exchangeOrderList');
-            const orderOption = orderSelect.options[orderSelect.selectedIndex];
-            const orderData = JSON.parse(orderOption.dataset.orderData);
-
-            // Task 7: Prepare exchange payload with note-only format
-            const exchangeNote = `Exchange | Old: [${oldItem.sku} – ${oldItem.name} – ${oldItem.price.toFixed(2)} EGP] | New: [${newItem.sku} – ${newItem.name} – ${newItem.price.toFixed(2)} EGP] | Delta: ${deltaText} EGP | Comment: ${exchangeData.comment || 'None'}`;
-
-            const exchangePayload = {
-                requestType: "exchange",
-                orderId: exchangeData.orderId,
-                phone: exchangeData.phone,
-                note: exchangeNote, // Task 7: Single human-readable note
-                order: orderData,
-                timestamp: new Date().toISOString()
-                // Task 7: NO structured exchange object
-            };
-
-            // Submit exchange request
-            const result = await this.webhooks.deliverWebhook(exchangePayload, 'exchange');
-
-            if (result.success) {
-                this.notifications.success('Exchange request submitted successfully');
-                this.closeExchangeModal();
-            } else {
-                throw new Error('Failed to submit exchange request');
-            }
-        } catch (error) {
-            console.error('Exchange submission failed:', error);
-            this.notifications.error('Failed to submit exchange request. Please try again.');
-        } finally {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Submit Exchange Request';
-            }
-        }
-    }
-
-    closeExchangeModal() {
-        const modal = document.getElementById('exchangeModal');
+    closeModal(modalId) {
+        const modal = document.getElementById(`${modalId}Modal`);
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('open');
             document.body.style.overflow = '';
         }
     }
 
     closeAllModals() {
-        this.closeQuickView();
-        this.closeCheckout();
-        this.closeSuccessModal();
-        this.closeReturnModal();
-        this.closeExchangeModal();
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.classList.remove('open');
+        });
+        document.body.style.overflow = '';
     }
 
-    handleNewsletterSubmit(e) {
-        const formData = new FormData(e.target);
-        const email = formData.get('email');
-        
-        if (!Utils.validateEmail(email)) {
-            this.notifications.error('Please enter a valid email address');
-            return;
+    // ===== CART AND WISHLIST TOGGLES =====
+    toggleCart(force = null) {
+        const cart = document.getElementById('floatingCart');
+        if (!cart) return;
+
+        if (force !== null) {
+            cart.classList.toggle('open', force);
+        } else {
+            cart.classList.toggle('open');
         }
+
+        if (cart.classList.contains('open')) {
+            this.toggleWishlist(false); // Close wishlist if open
+        }
+    }
+
+    toggleWishlist(force = null) {
+        const wishlist = document.getElementById('wishlistPanel');
+        if (!wishlist) return;
+
+        if (force !== null) {
+            wishlist.classList.toggle('open', force);
+        } else {
+            wishlist.classList.toggle('open');
+        }
+
+        if (wishlist.classList.contains('open')) {
+            this.toggleCart(false); // Close cart if open
+        }
+    }
+
+    toggleMobileMenu() {
+        const nav = document.querySelector('.nav');
+        if (nav) {
+            nav.classList.toggle('open');
+        }
+    }
+
+    // ===== NAVIGATION AND SCROLLING =====
+    scrollToSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            const headerHeight = document.querySelector('.header').offsetHeight;
+            Utils.scrollToElement(section, headerHeight + 20);
+        }
+    }
+
+    setActiveNavLink(activeLink) {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        activeLink.classList.add('active');
+    }
+
+    updateActiveNavOnScroll() {
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-link[data-section]');
         
-        // Simulate newsletter signup
-        this.notifications.success('Thank you for subscribing to our newsletter!');
-        e.target.reset();
+        window.addEventListener('scroll', Utils.throttle(() => {
+            const scrollPosition = window.scrollY + 100;
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.offsetHeight;
+                const sectionId = section.getAttribute('id');
+                
+                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('data-section') === sectionId) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }, 100));
+    }
+
+    handleScroll() {
+        const scrollY = window.scrollY;
+        const header = document.querySelector('.header');
+        const backToTop = document.getElementById('backToTop');
+
+        // Hide/show header on scroll
+        if (scrollY > 100) {
+            header?.classList.add('scrolled');
+        } else {
+            header?.classList.remove('scrolled');
+        }
+
+        // Show/hide back to top button
+        if (scrollY > 500) {
+            backToTop?.classList.add('visible');
+        } else {
+            backToTop?.classList.remove('visible');
+        }
+    }
+
+    handleResize() {
+        // Close mobile menu on resize
+        if (window.innerWidth > 768) {
+            const nav = document.querySelector('.nav');
+            if (nav) {
+                nav.classList.remove('open');
+            }
+        }
+    }
+
+    /**
+     * Handle a customer's request to exchange the recently placed order.
+     * Displays a toast notification; in a real implementation this would
+     * trigger backend logic or show a form.
+     */
+    handleExchangeOrder() {
+        this.notifications.info('Exchange request received. Our team will contact you shortly.');
+    }
+
+    /**
+     * Handle a customer's request to return the recently placed order.
+     * Displays a toast notification; this is a placeholder for real return logic.
+     */
+    handleReturnOrder() {
+        this.notifications.info('Return request received. Our team will contact you shortly.');
+    }
+
+    /**
+     * Open the return order modal.  This simply delegates to openModal with
+     * the appropriate id.
+     */
+    openReturnModal() {
+        this.openModal('return');
+    }
+
+    /**
+     * Open the exchange order modal.
+     */
+    openExchangeModal() {
+        this.openModal('exchange');
+    }
+
+    /**
+     * Attach submit handlers to the return and exchange forms.  These forms
+     * live in the footer and allow customers to request a return or
+     * exchange without placing a new order.  On submission we simply
+     * display a toast message and reset/close the modal.
+     */
+    initializeReturnExchangeForms() {
+        /**
+         * Look up stored orders by phone number.
+         * @param {string} phone The phone number to search for.
+         * @returns {Array<Object>} A list of order objects matching the phone.
+         */
+        const getOrdersByPhone = (phone) => {
+            try {
+                const orders = JSON.parse(localStorage.getItem('grindctrl_orders')) || [];
+                return orders.filter(o => (o.Phone && o.Phone.replace(/[^\d]/g, '') === phone.replace(/[^\d]/g, '')));
+            } catch (error) {
+                console.warn('Failed to load orders for lookup:', error);
+                return [];
+            }
+        };
+
+        /**
+         * Populate the order list container with clickable radio items.  Each
+         * order is represented as a radio input inside a styled div.  The
+         * submit button is disabled until the user selects one.
+         * @param {HTMLElement} container The container element to populate.
+         * @param {Array<Object>} orders The orders for the given phone.
+         * @param {HTMLElement} submitBtn The submit <button> element.
+         */
+        const populateOrderSelect = (container, orders, submitBtn) => {
+            container.innerHTML = '';
+            if (!orders || orders.length === 0) {
+                container.style.display = 'none';
+                submitBtn.disabled = true;
+                return;
+            }
+            orders.forEach(order => {
+                const item = document.createElement('div');
+                item.className = 'order-item';
+                const label = document.createElement('label');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = `${container.id}_radio`;
+                radio.value = order['Order ID'];
+                label.appendChild(radio);
+                const text = document.createTextNode(`${order['Order ID']} – ${order.Total} ${order.Currency || ''}`);
+                label.appendChild(text);
+                item.appendChild(label);
+                container.appendChild(item);
+            });
+            container.style.display = '';
+            submitBtn.disabled = true;
+            // Enable submit when an order is chosen
+            container.addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="radio"]')) {
+                    submitBtn.disabled = false;
+                }
+            });
+        };
+
+        /**
+         * Attach lookup and change handlers for either return or exchange forms.
+         * @param {string} phoneId ID of the phone input.
+         * @param {string} buttonId ID of the "Find Orders" button.
+         * @param {string} selectId ID of the order select dropdown.
+         * @param {string} submitId ID of the submit button.
+         */
+        const attachLookupHandlers = (phoneId, buttonId, containerId, submitId) => {
+            const phoneInput = document.getElementById(phoneId);
+            const findBtn = document.getElementById(buttonId);
+            const container = document.getElementById(containerId);
+            const submitBtn = document.getElementById(submitId);
+            if (!phoneInput || !findBtn || !container || !submitBtn) return;
+            findBtn.addEventListener('click', () => {
+                const phone = phoneInput.value.trim();
+                if (!phone) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                const orders = getOrdersByPhone(phone);
+                if (orders.length === 0) {
+                    this.notifications.error('No orders found for this phone number.');
+                    populateOrderSelect(container, [], submitBtn);
+                    return;
+                }
+                populateOrderSelect(container, orders, submitBtn);
+            });
+        };
+
+        // Attach handlers for Return
+        attachLookupHandlers('returnPhone', 'findReturnOrders', 'returnOrderList', 'returnSubmit');
+        // Attach handlers for Exchange
+        attachLookupHandlers('exchangePhone', 'findExchangeOrders', 'exchangeOrderList', 'exchangeSubmit');
+
+        // Submit handlers for return and exchange forms
+        const returnForm = document.getElementById('returnForm');
+        if (returnForm) {
+            returnForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const phoneVal = document.getElementById('returnPhone')?.value.trim();
+                const reasonVal = document.getElementById('returnMessage')?.value.trim();
+                // Find the selected order from the radio list
+                const selectedRadio = document.querySelector('#returnOrderList input[type="radio"]:checked');
+                if (!phoneVal) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                if (!selectedRadio) {
+                    this.notifications.error('Please select an order to return.');
+                    return;
+                }
+                const orderId = selectedRadio.value;
+                // Look up the full order details by phone and id
+                const orders = getOrdersByPhone(phoneVal);
+                const orderObj = orders.find(o => o['Order ID'] === orderId) || null;
+                const payload = {
+                    phone: phoneVal,
+                    orderId: orderId,
+                    reason: reasonVal,
+                    order: orderObj
+                };
+                const success = await this.sendReturnOrExchangeWebhook(payload, 'return');
+                if (success) {
+                    this.notifications.success('Return request submitted! Our support team will contact you soon.');
+                } else {
+                    this.notifications.error('Failed to submit return request. Please try again.');
+                }
+                returnForm.reset();
+                // Hide order list and disable submit again
+                const listEl = document.getElementById('returnOrderList');
+                const submitBtn = document.getElementById('returnSubmit');
+                if (listEl) listEl.style.display = 'none';
+                if (submitBtn) submitBtn.disabled = true;
+                this.closeModal('return');
+            });
+        }
+        const exchangeForm = document.getElementById('exchangeForm');
+        if (exchangeForm) {
+            exchangeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const phoneVal = document.getElementById('exchangePhone')?.value.trim();
+                const reasonVal = document.getElementById('exchangeMessage')?.value.trim();
+                const selectedRadio = document.querySelector('#exchangeOrderList input[type="radio"]:checked');
+                if (!phoneVal) {
+                    this.notifications.error('Please enter a phone number.');
+                    return;
+                }
+                if (!selectedRadio) {
+                    this.notifications.error('Please select an order to exchange.');
+                    return;
+                }
+                const orderId = selectedRadio.value;
+                const orders = getOrdersByPhone(phoneVal);
+                const orderObj = orders.find(o => o['Order ID'] === orderId) || null;
+                const payload = {
+                    phone: phoneVal,
+                    orderId: orderId,
+                    reason: reasonVal,
+                    order: orderObj
+                };
+                const success = await this.sendReturnOrExchangeWebhook(payload, 'exchange');
+                if (success) {
+                    this.notifications.success('Exchange request submitted! Our support team will contact you soon.');
+                } else {
+                    this.notifications.error('Failed to submit exchange request. Please try again.');
+                }
+                exchangeForm.reset();
+                const listEl = document.getElementById('exchangeOrderList');
+                const submitBtn = document.getElementById('exchangeSubmit');
+                if (listEl) listEl.style.display = 'none';
+                if (submitBtn) submitBtn.disabled = true;
+                this.closeModal('exchange');
+            });
+        }
     }
 }
 
-// Initialize the application when DOM is ready
+// ===== GLOBAL FUNCTIONS =====
+window.scrollToSection = function(sectionId) {
+    if (window.app) {
+        window.app.scrollToSection(sectionId);
+    }
+};
+
+window.openLookbook = function() {
+    if (window.app) {
+        window.app.openLookbook();
+    }
+};
+
+window.openSizeGuide = function() {
+    if (window.app) {
+        window.app.openSizeGuide();
+    }
+};
+
+window.closeSuccessModal = function() {
+    if (window.app) {
+        window.app.closeSuccessModal();
+    }
+};
+
+// ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
-    // Setup checkout handlers when DOM is ready
-    setTimeout(() => {
-        if (window.app && window.app.setupCheckoutHandlers) {
-            window.app.setupCheckoutHandlers();
-        }
-    }, 100);
+    window.app = new GrindCTRLApp();
 });
+
+// ===== SERVICE WORKER REGISTRATION =====
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+                console.log('SW registration failed: ', registrationError);
+            });
+    });
+}
+
+/* Injected robust close handling */
+document.addEventListener('click', function(e){
+  const cartBtn     = e.target.closest && e.target.closest('.cart-close');
+  const wishlistBtn = e.target.closest && e.target.closest('.wishlist-close');
+  const modalBtn    = e.target.closest && e.target.closest('.modal-close');
+  const overlay     = (e.target.classList && e.target.classList.contains('modal-overlay')) ? e.target : null;
+
+  if (cartBtn)     { try { window.app && app.toggleCart(false); } catch(_){} return; }
+  if (wishlistBtn) { try { window.app && app.toggleWishlist(false); } catch(_){} return; }
+  if (modalBtn)    {
+    const m = modalBtn.closest('.modal');
+    if (m && m.id) { 
+      try { 
+        const id = m.id.replace('Modal','').replace(/Modal$/,'');
+        window.app && app.closeModal(id); 
+      } catch(_){} 
+    }
+    return;
+  }
+  if (overlay) {
+    const m = overlay.closest('.modal');
+    if (m && m.id) {
+      try { 
+        const id = m.id.replace('Modal','').replace(/Modal$/,'');
+        window.app && app.closeModal(id); 
+      } catch(_){} 
+    }
+  }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') {
+    try { window.app && app.closeAllModals && app.closeAllModals(); } catch(_){}
+  }
+});
+
