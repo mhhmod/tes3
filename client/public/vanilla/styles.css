@@ -219,7 +219,11 @@ a {
     font-size: 1.1rem;
 }
 
-
+.nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
 
 .nav-link {
     position: relative;
@@ -343,9 +347,24 @@ a {
 }
 
 @media (max-width: 768px) {
-    .nav {position:fixed;top:70px;right:-100%;left:auto;width:100%;max-width:none;height:calc(100vh - 70px);background:var(--background-surface);flex-direction:column;align-items:flex-start;padding:var(--spacing-xl);transition:right var(--transition-medium);z-index:var(--z-fixed,9999);overflow-y:auto;}
-    .nav.open { right: 0; }
-    
+    .nav {
+        position: fixed;
+        top: 70px;
+        right: -100%;
+        width: 100%;
+        max-width: 300px;
+        height: calc(100vh - 70px);
+        background: var(--background-surface);
+        flex-direction: column;
+        align-items: flex-start;
+        padding: var(--spacing-xl);
+        transition: right var(--transition-medium);
+        border-left: 1px solid var(--border-color);
+        /* Ensure the mobile menu appears above other content and is scrollable
+           when the list of navigation links exceeds the viewport height. */
+        z-index: var(--z-fixed);
+        overflow-y: auto;
+    }
     
     .nav.open {
         right: 0;

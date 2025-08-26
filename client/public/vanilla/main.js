@@ -356,9 +356,6 @@ class Utils {
 // ===== NOTIFICATION SYSTEM =====
 class NotificationManager {
     constructor() {
-        this._hideTimer = null;
-        this.container = document.getElementById('notificationToast');
-        if (this.container) this.container.style.display = 'none';
         this.notifications = [];
         this.container = document.getElementById('notificationToast');
         // Track the timeout for the current toast. When a new notification is shown
@@ -391,12 +388,18 @@ class NotificationManager {
         // Schedule hiding of this toast after the specified duration.  Store the timeout
         // identifier so it can be cancelled if another toast appears before it fires.
         this.currentTimeout = setTimeout(() => {
-            this.hide() {
-    if (!this.container) return;
-    this.container.classList.remove('show');
-    if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-    setTimeout(() => { if (this.container) this.container.style.display = 'none'; }, 300);
-};
+            this.hide(notification.id);
+            this.currentTimeout = null;
+        }, duration);
+    }
+
+    render(notification) {
+        const iconMap = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle',
+            warning: 'fas fa-exclamation-triangle'
+        };
 
         this.container.querySelector('.toast-icon').className = `toast-icon ${notification.type} ${iconMap[notification.type]}`;
         this.container.querySelector('.toast-message').textContent = notification.message;
@@ -406,12 +409,14 @@ class NotificationManager {
         // Auto-hide on close button click
         const closeBtn = this.container.querySelector('.toast-close');
         if (closeBtn) {
-            closeBtn.onclick = () => this.hide() {
-    if (!this.container) return;
-    this.container.classList.remove('show');
-    if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-    setTimeout(() => { if (this.container) this.container.style.display = 'none'; }, 300);
-}
+            closeBtn.onclick = () => this.hide(notification.id);
+        }
+    }
+
+    hide(id) {
+        this.notifications = this.notifications.filter(n => n.id !== id);
+        this.container.classList.remove('show');
+    }
 
     success(message) {
         this.show(message, 'success');
@@ -444,12 +449,11 @@ class LoadingManager {
         }
     }
 
-    hide() {
-    if (!this.container) return;
-    this.container.classList.remove('show');
-    if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-    setTimeout(() => { if (this.container) this.container.style.display = 'none'; }, 300);
-}
+    hide(taskId = 'default') {
+        this.loadingTasks.delete(taskId);
+        if (this.loadingTasks.size === 0 && this.loadingScreen) {
+            this.loadingScreen.classList.add('hidden');
+        }
     }
 
     hideAll() {
@@ -481,7 +485,6 @@ class ScrollAnimations {
     }
 
     init() {
-        if (this._initOnce) return; this._initOnce = true;
         // Add animation classes to elements
         const animateElements = document.querySelectorAll('.product-card, .feature, .about-text, .hero-stats .stat');
         
@@ -509,7 +512,7 @@ class GrindCTRLApp {
             this.loading.show('init');
             
             // Load product data
-            await this.safeRenderProducts();
+            await this.loadProducts();
             
             // Initialize UI components
             this.initializeEventListeners();
@@ -534,45 +537,27 @@ class GrindCTRLApp {
                 this.scrollAnimations = new ScrollAnimations();
             }, 100);
             
-            this.loading.hide() {
-    if (!this.container) return;
-    this.container.classList.remove('show');
-    if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-    setTimeout(() => { if (this.container) this.container.style.display = 'none'; }, 300);
-}
+            this.loading.hide('init');
+            
+            console.log('GrindCTRL App initialized successfully');
+            
+        } catch (error) {
+            console.error('Failed to initialize app:', error);
+            this.notifications.error('Failed to load the application. Please refresh the page.');
+            this.loading.hideAll();
+        }
     }
 
-    async loadProducts(force=false) {
-    try {
-        if (!force && this._productsCache) return this._productsCache;
-        if (this._productsLoading && !force) return this._productsLoading;
-        const url = this.getBaseUrlForAssets() + 'products.json';
-        this._productsLoading = fetch(url, {cache: 'no-store'})
-            .then(r => {
-                if (!r.ok) throw new Error('HTTP '+r.status);
-                return r.json();
-            })
-            .then(list => {
-                if (!Array.isArray(list)) list = [];
-                // basic schema cleanup
-                list = list.filter(p => p && p.image);
-                this._productsCache = list;
-                this._productsLoading = null;
-                return list;
-            })
-            .catch(err => {
-                console.error('products fetch failed:', err);
-                this._productsCache = [];
-                this._productsLoading = null;
-                return [];
-            });
-        return await this._productsLoading;
-    } catch (e) {
-        console.error('loadProducts fatal:', e);
-        this._productsCache = [];
-        return [];
-    }
-} catch (error) {
+    async loadProducts() {
+        try {
+            const response = await fetch('./products.json');
+            if (!response.ok) throw new Error('Failed to fetch products');
+            
+            const data = await response.json();
+            this.state.products = data.products;
+            this.state.categories = data.categories;
+            
+        } catch (error) {
             console.error('Error loading products:', error);
             // Fallback to embedded data
             this.loadFallbackData();
@@ -1579,12 +1564,20 @@ class GrindCTRLApp {
             console.error('Order submission error:', error);
             this.notifications.error('Failed to place order. Please try again.');
         } finally {
-            this.loading.hide() {
-    if (!this.container) return;
-    this.container.classList.remove('show');
-    if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-    setTimeout(() => { if (this.container) this.container.style.display = 'none'; }, 300);
-} ${this.state.orderData.lastName}`,
+            this.loading.hide('order');
+        }
+    }
+
+    prepareOrderData() {
+        const orderId = Utils.generateOrderId();
+        const trackingNumber = Utils.generateTrackingNumber();
+        const subtotal = this.state.getCartTotal();
+        const total = subtotal; // No tax or shipping for now
+        const codAmount = this.state.orderData.paymentMethod === 'cod' ? total : 0;
+
+        return {
+            "Order ID": orderId,
+            "Customer Name": `${this.state.orderData.firstName} ${this.state.orderData.lastName}`,
             "Phone": this.state.orderData.phone,
             "City": this.state.orderData.city,
             "Address": this.state.orderData.address,
@@ -2234,64 +2227,4 @@ document.addEventListener('keydown', function(e){
     try { window.app && app.closeAllModals && app.closeAllModals(); } catch(_){}
   }
 });
-
-
-
-/* ULTRA_BOOTSTRAP: guaranteed product rendering */
-(function(){
-  let booted = false;
-  function qs(s){ return document.querySelector(s); }
-  function ensureContainers(){
-    const coll = document.querySelector('#collection .container') ||
-                 document.querySelector('#collection') ||
-                 document.body;
-    let loader = qs('#productsLoading') || qs('.products-loading');
-    if(!loader){
-      loader = document.createElement('div');
-      loader.id = 'productsLoading';
-      loader.className = 'products-loading';
-      loader.textContent = 'Loading...';
-      coll.appendChild(loader);
-    }
-    let grid = qs('#productGrid') || qs('.product-grid') || qs('.products-grid');
-    if(!grid){
-      grid = document.createElement('div');
-      grid.id = 'productGrid';
-      grid.className = 'product-grid';
-      coll.appendChild(grid);
-    }
-    return {loader, grid};
-  }
-  async function loadProducts(){
-    try{
-      const resp = await fetch('./products.json', {cache: 'no-store'});
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      const arr = await resp.json();
-      return Array.isArray(arr) ? arr.filter(p => p && p.image) : [];
-    }catch(e){
-      console.error('loadProducts error', e);
-      return [];
-    }
-  }
-  function render(items, ctx){
-    if(ctx.loader) ctx.loader.style.display = 'none';
-    ctx.grid.innerHTML = (items.map(p => `
-      <article class="product-card">
-        <img src="${p.image}" alt="${p.name}">
-        <h3>${p.name}</h3>
-        <p>${p.price}</p>
-        <button class="btn btn-primary" data-add="${p.name}">Add to cart</button>
-      </article>
-    `).join('')) || '<div class="empty">No products available.</div>';
-  }
-  async function boot(){
-    if(booted) return; booted = true;
-    const ctx = ensureContainers();
-    const items = await loadProducts();
-    render(items, ctx);
-  }
-  document.readyState === 'loading'
-    ? document.addEventListener('DOMContentLoaded', boot)
-    : boot();
-})();
 
